@@ -1,0 +1,8 @@
+# Battery Controller Arduino (CH340 on USB port 1-1.1)
+SUBSYSTEM=="tty", KERNELS=="1-1.1:1.0", SYMLINK+="ttyBATERAI", MODE="0666"
+
+# Motor Controller Arduino (CH340 on USB port 1-1.3)
+SUBSYSTEM=="tty", KERNELS=="1-1.3:1.0", SYMLINK+="ttyMOTOR", MODE="0666"
+
+# LiDAR (CP2102 via unique serial number)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="0001", SYMLINK+="ttyLIDAR", MODE="0666"

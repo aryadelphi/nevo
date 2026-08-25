@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>nevo_robot_api</name>
+  <version>0.0.1</version>
+  <description>NEVO Robot API: translate WebSocket JSON commands to ROS actions/topics with mode state machine</description>
+
+  <maintainer email="nevo@example.com">NEVO Maintainer</maintainer>
+  <license>MIT</license>
+
+  <!-- build tool -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- build / exec dependencies -->
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>slam_toolbox</depend>
+
+  <!-- libzip: system library resolved via pkg_check_modules in CMake,
+       tidak perlu dideklarasikan sebagai ROS dependency.
+       Pastikan sudah terinstall di sistem:
+       sudo apt install libzip-dev -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

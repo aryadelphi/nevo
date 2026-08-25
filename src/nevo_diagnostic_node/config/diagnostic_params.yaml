@@ -1,0 +1,24 @@
+# ────────────────────────────────────────────────────────────────────────────
+# nevo_diagnostic_node — default parameters
+#
+# These values are loaded at launch time.  Override individual parameters
+# by passing them on the CLI:
+#
+#   ros2 launch nevo_diagnostic_node diagnostic.launch.py robot_id:=RB002
+#
+# or by editing this file directly.
+# ────────────────────────────────────────────────────────────────────────────
+
+nevo_diagnostic_node:
+  ros__parameters:
+
+    # ── Identity ─────────────────────────────────────────────────────────────
+    robot_id: "TFRB2"        # Identifier sent in every JSON message
+    ui_id:    "TFUI2"  # UI client identifier sent in every JSON message
+
+    # ── Timing ───────────────────────────────────────────────────────────────
+    grace_period_sec:   10   # Seconds to ignore topics after node start
+    global_timeout_sec: 60   # Boot is FAILED if not READY within this window
+
+    # ── Odometry staleness ────────────────────────────────────────────────────
+    odom_timeout_sec: 3.0    # /odometry/filtered must update at least this often

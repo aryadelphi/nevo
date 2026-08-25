@@ -1,0 +1,94 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="default">
+    <include>
+      <uri>model://sun</uri>
+    </include>
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <physics name="default_physics" default="true" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Simple charging dock model with AprilTag -->
+    <model name="charging_dock">
+      <static>true</static>
+      <pose>-1.8 0.40 0 0 0 0</pose>
+
+      <!-- Dock body -->
+      <link name="body">
+        <pose>0 0 0.15 0 0 0</pose>
+        <visual name="base">
+          <geometry>
+            <box>
+              <size>0.50 0.30 0.30</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+        <collision name="base_collision">
+          <geometry>
+            <box>
+              <size>0.50 0.30 0.30</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+
+      <!-- Post holding the tag -->
+      <link name="post">
+        <pose>0.25 0 0.30 0 0 0</pose>
+        <visual name="post_visual">
+          <geometry>
+            <box>
+              <size>0.05 0.05 0.40</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.2 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+
+      <!-- AprilTag visual on post, facing +X (towards robot spawn) -->
+      <link name="tag">
+        <pose>0.25 0 0.55 0 0 0</pose>
+        <visual name="tag_visual">
+          <geometry>
+            <box>
+              <size>0.001 0.20 0.20</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <name>TagMaterial</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+
+      <joint name="body_post_joint" type="fixed">
+        <parent>body</parent>
+        <child>post</child>
+      </joint>
+      <joint name="post_tag_joint" type="fixed">
+        <parent>post</parent>
+        <child>tag</child>
+      </joint>
+    </model>
+  </world>
+</sdf>
