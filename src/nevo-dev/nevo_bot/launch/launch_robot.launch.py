@@ -300,7 +300,8 @@ def generate_launch_description():
             target_action=controller_manager,
             on_start=[
                 TimerAction(period=5.0, actions=[
-                    ina226_bridge, camera_node, rectify_node,
+                    #ina226_bridge,  # DISABLED — Arduino unplugged for rewiring
+                    camera_node, rectify_node,
                     apriltag_node, tag_pose_bridge, docking_server,
                     kinect_activate, kinect_tf,
                 ]),
