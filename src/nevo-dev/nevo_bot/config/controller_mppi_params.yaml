@@ -63,7 +63,7 @@ bt_navigator:
 controller_server:
   ros__parameters:
     use_sim_time: False
-    controller_frequency: 10.0
+    controller_frequency: 5.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
@@ -87,7 +87,7 @@ controller_server:
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 28
-      model_dt: 0.1
+      model_dt: 0.2
       batch_size: 800
       iteration_count: 4
       motion_model: "DiffDrive"
@@ -95,7 +95,7 @@ controller_server:
       vy_std: 0.0
       wz_std: 0.4
       prune_distance: 1.7
-      transform_tolerance: 0.1
+      transform_tolerance: 1.0
       temperature: 0.5
       open_loop: true
       gamma: 0.015

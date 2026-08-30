@@ -124,11 +124,11 @@ def generate_launch_description():
     # =========================================================================
     # LAYER 2 — OnProcessStart(controller_manager)
     # =========================================================================
-    diff_drive_spawner = Node(
-        package='controller_manager', executable='spawner', arguments=['diff_cont']
-    )
     joint_state_broadcaster_spawner = Node(
         package='controller_manager', executable='spawner', arguments=['joint_state_broadcaster']
+    )
+    diff_drive_spawner = Node(
+        package='controller_manager', executable='spawner', arguments=['diff_cont']
     )
     ekf_node = Node(
         package='robot_localization', executable='ekf_node',
@@ -141,12 +141,15 @@ def generate_launch_description():
         remappings=[('cmd_vel_out', '/diff_cont/cmd_vel_unstamped_raw')]
     )
 
+    # joint_state_broadcaster must activate FIRST (claims state interfaces),
+    # then diff_cont after a delay (claims command interfaces).
     layer2_on_controller_start = RegisterEventHandler(
         event_handler=OnProcessStart(
             target_action=controller_manager,
-            on_start=[diff_drive_spawner, joint_state_broadcaster_spawner, ekf_node, twist_mux]
+            on_start=[joint_state_broadcaster_spawner, ekf_node, twist_mux]
         )
     )
+    delayed_diff_drive = TimerAction(period=10.0, actions=[diff_drive_spawner])
 
     # =========================================================================
     # LAYER 3 — TimerAction from OnProcessStart(controller_manager)
@@ -333,6 +336,7 @@ def generate_launch_description():
 
         # Layer 2
         layer2_on_controller_start,
+        delayed_diff_drive,
 
         # Layer 2b — INA226 + Docking + Kinect
         layer2b_on_controller_start,
