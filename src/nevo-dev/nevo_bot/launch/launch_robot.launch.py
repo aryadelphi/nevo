@@ -16,7 +16,7 @@ from launch_ros.actions import Node
 
 def get_selected_map():
     config_file = os.path.expanduser("~/nevo_selected_map.txt")
-    default_map = "/home/rspx1/nevo_ws/src/nevo-dev/nevo_bot/maps/telkop_save_map.yaml"
+    default_map = "/home/nevo/nevo_ws/src/nevo-dev/nevo_bot/maps/abie_lab_save.yaml"
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             map_path = f.read().strip()
@@ -246,7 +246,7 @@ def generate_launch_description():
         parameters=[{
             'video_device': '/dev/video0',
             'image_size': [320, 240],
-            'camera_info_url': 'file:///home/rspx1/.ros/camera_info/c310_calibration_320x240.yaml',
+            'camera_info_url': 'file:///home/nevo/.ros/camera_info/c310_calibration_320x240.yaml',
             'camera_frame_id': 'c310_camera_link_optical'
         }]
     )
@@ -318,7 +318,7 @@ def generate_launch_description():
     )
     fix_fastdds_env = SetEnvironmentVariable(
         'FASTRTPS_DEFAULT_PROFILES_FILE',
-        'file:///home/rspx1/fastdds.xml'
+        'file:///home/nevo/fastdds.xml'
     )
 
     return LaunchDescription([

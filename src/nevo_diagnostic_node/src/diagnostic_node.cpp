@@ -91,11 +91,13 @@ DiagnosticNode::DiagnosticNode(const rclcpp::NodeOptions & options)
   // ── Publisher ──────────────────────────────────────────────────────────────
   ws_out_pub_ = this->create_publisher<std_msgs::msg::String>("/nevo/ws_out", 10);
 
-  // ── Subscribers (QoS: best-effort, keep-last 1 is fine for monitoring) ─────
+  // ── Subscribers ────────────────────────────────────────────────────────────
+  // /map uses reliable+transient_local (matches map_server publisher QoS)
+  auto map_qos = rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local();
   auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort();
 
   map_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
-    "/map", qos,
+    "/map", map_qos,
     [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) { onMap(msg); });
 
   amcl_sub_ = this->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # NEVO: load a new map YAML into the running Nav2 map_server.
 # Called by nevo_robot_api (handleMapSelected) as:
-#   /home/rspx1/restart_map.sh '<yaml_path>'
+#   /home/nevo/restart_map.sh '<yaml_path>'
 # Exit 0 = success, non-zero = failure.
 # NOTE: no `set -u` — ROS setup.bash scripts reference unbound vars.
 

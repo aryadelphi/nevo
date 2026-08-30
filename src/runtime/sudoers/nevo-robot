@@ -1,1 +1,1 @@
-rspx1 ALL=(root) NOPASSWD: /usr/bin/systemd-run
+nevo ALL=(root) NOPASSWD: /usr/bin/systemd-run

@@ -4,14 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=rspx1
-Group=rspx1
-WorkingDirectory=/home/rspx1
+User=nevo
+Group=nevo
+WorkingDirectory=/home/nevo
 Environment=RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-Environment=FASTRTPS_DEFAULT_PROFILES_FILE=file:///home/rspx1/fastdds.xml
+Environment=FASTRTPS_DEFAULT_PROFILES_FILE=file:///home/nevo/fastdds.xml
 Environment=ROS_DOMAIN_ID=7
 Environment=ROS_LOCALHOST_ONLY=0
-ExecStart=/bin/bash /home/rspx1/nevo_launch_robot.sh nav
+ExecStart=/bin/bash /home/nevo/nevo_launch_robot.sh nav
 Restart=on-failure
 RestartSec=5
 KillMode=control-group

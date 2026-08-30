@@ -13,7 +13,7 @@ from launch_ros.actions import Node
 
 def get_selected_map():
     config_file = os.path.expanduser("~/nevo_selected_map.txt")
-    default_map = "/home/rspx1/nevo_ws/src/nevo-dev/nevo_bot/maps/telkop_save_map.yaml"
+    default_map = "/home/nevo/nevo_ws/src/nevo-dev/nevo_bot/maps/abie_lab_save.yaml"
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             map_path = f.read().strip()

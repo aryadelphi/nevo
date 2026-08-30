@@ -16,7 +16,7 @@ def generate_launch_description():
         parameters=[{
             'video_device': '/dev/video0',
             'image_size': [320, 240],
-            'camera_info_url': 'file:///home/rspx1/.ros/camera_info/c310_calibration_320x240.yaml',
+            'camera_info_url': 'file:///home/nevo/.ros/camera_info/c310_calibration_320x240.yaml',
             'camera_frame_id': 'c310_camera_link_optical'
         }]
     )

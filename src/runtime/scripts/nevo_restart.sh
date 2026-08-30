@@ -61,7 +61,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export FASTRTPS_DEFAULT_PROFILES_FILE="file://$HOME/fastdds.xml"
 export ROS_DOMAIN_ID=7
 source /opt/ros/jazzy/setup.bash 2>/dev/null || true
-source /home/rspx1/nevo_ws/install/setup.bash 2>/dev/null || true
+source /home/nevo/nevo_ws/install/setup.bash 2>/dev/null || true
 timeout 5 python3 -c "
 import rclpy
 from rclpy.node import Node
@@ -137,10 +137,10 @@ sleep 3
 LOG "relaunching: mode=$MODE"
 if command -v tmux >/dev/null 2>&1; then
   tmux kill-session -t "$SESSION" 2>/dev/null
-  tmux new-session -d -s "$SESSION" -x 200 -y 50 "bash -c 'export RMW_IMPLEMENTATION=rmw_fastrtps_cpp && export FASTRTPS_DEFAULT_PROFILES_FILE=file://$HOME/fastdds.xml && export ROS_DOMAIN_ID=7 && source /opt/ros/jazzy/setup.bash && source /home/rspx1/nevo_ws/install/setup.bash && exec ros2 launch nevo_bot launch_robot.launch.py stack_mode:=$MODE robot_id:=TFRB2 ui_id:=TFUI2'"
+  tmux new-session -d -s "$SESSION" -x 200 -y 50 "bash -c 'export RMW_IMPLEMENTATION=rmw_fastrtps_cpp && export FASTRTPS_DEFAULT_PROFILES_FILE=file://$HOME/fastdds.xml && export ROS_DOMAIN_ID=7 && source /opt/ros/jazzy/setup.bash && source /home/nevo/nevo_ws/install/setup.bash && exec ros2 launch nevo_bot launch_robot.launch.py stack_mode:=$MODE robot_id:=TFRB2 ui_id:=TFUI2'"
   LOG "launch running in tmux session '$SESSION' (attach: tmux attach -t $SESSION)"
 else
-  nohup bash -c "export RMW_IMPLEMENTATION=rmw_fastrtps_cpp && export FASTRTPS_DEFAULT_PROFILES_FILE=file://\$HOME/fastdds.xml && export ROS_DOMAIN_ID=7 && source /opt/ros/jazzy/setup.bash && source /home/rspx1/nevo_ws/install/setup.bash && exec ros2 launch nevo_bot launch_robot.launch.py stack_mode:=$MODE robot_id:=TFRB2 ui_id:=TFUI2" >> "$LOGFILE" 2>&1 &
+  nohup bash -c "export RMW_IMPLEMENTATION=rmw_fastrtps_cpp && export FASTRTPS_DEFAULT_PROFILES_FILE=file://\$HOME/fastdds.xml && export ROS_DOMAIN_ID=7 && source /opt/ros/jazzy/setup.bash && source /home/nevo/nevo_ws/install/setup.bash && exec ros2 launch nevo_bot launch_robot.launch.py stack_mode:=$MODE robot_id:=TFRB2 ui_id:=TFUI2" >> "$LOGFILE" 2>&1 &
   LOG "launch running detached (log: $LOGFILE)"
 fi
 

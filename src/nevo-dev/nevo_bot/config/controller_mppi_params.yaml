@@ -31,8 +31,8 @@ amcl:
     sigma_hit: 0.2
     tf_broadcast: true
     transform_tolerance: 1.0
-    update_min_a: 0.1
-    update_min_d: 0.1
+    update_min_a: 0.0
+    update_min_d: 0.0
     z_hit: 0.9
     z_max: 0.05
     z_rand: 0.1
@@ -46,8 +46,8 @@ bt_navigator:
     robot_base_frame: base_link
     odom_topic: /diff_cont/odom
     bt_loop_duration: 20
-    default_server_timeout: 1000
-    default_nav_to_pose_bt_xml: "/home/rspx1/nevo_ws/install/nevo_bot/share/nevo_bot/config/navigate_to_pose_w_relocalization.xml"
+    default_server_timeout: 3000
+    default_nav_to_pose_bt_xml: "/home/nevo/nevo_ws/install/nevo_bot/share/nevo_bot/config/navigate_to_pose_w_relocalization.xml"
     default_nav_through_poses_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
     wait_for_service_timeout: 5000
     action_server_result_timeout: 900.0
@@ -281,7 +281,7 @@ planner_server:
     use_sim_time: False
     expected_planner_frequency: 1.0
     planner_plugins: ["GridBased"]
-    costmap_update_timeout: 1.0
+    costmap_update_timeout: 5.0
     transform_tolerance: 2.0
     GridBased:
       plugin: "nav2_navfn_planner::NavfnPlanner"

@@ -111,9 +111,9 @@ def generate_launch_description():
     lifecycle_script = ExecuteProcess(
         cmd=['bash', '-c', '''
             source /opt/ros/jazzy/setup.bash
-            source /home/rspx1/nevo_ws/install/setup.bash 2>/dev/null || true
+            source /home/nevo/nevo_ws/install/setup.bash 2>/dev/null || true
             export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-            export FASTRTPS_DEFAULT_PROFILES_FILE="file:///home/rspx1/fastdds.xml"
+            export FASTRTPS_DEFAULT_PROFILES_FILE="file:///home/nevo/fastdds.xml"
 
             # Wait for nodes to appear on the ROS graph
             echo "=== lifecycle_activator: waiting for map_server node ==="
@@ -156,17 +156,33 @@ def generate_launch_description():
             lifecycle_set /amcl activate "activating amcl"
             sleep 3
 
-            # Publish initial pose multiple times
+            # Publish initial pose repeatedly on a background timer
             echo "=== lifecycle_activator: publishing initial pose ==="
-            for i in $(seq 1 5); do
-                ros2 topic pub --once /initialpose geometry_msgs/PoseWithCovarianceStamped "{
-                  header: {frame_id: 'map'},
-                  pose: {
-                    pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}},
-                    covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0625]
-                  }
-                }" 2>&1
-                sleep 2
+            (
+                while true; do
+                    ros2 topic pub --once /initialpose geometry_msgs/PoseWithCovarianceStamped "{
+                      header: {frame_id: 'map'},
+                      pose: {
+                        pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}},
+                        covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0625]
+                      }
+                    }" 2>/dev/null
+                    sleep 5
+                done
+            ) &
+            INITIALPOSE_PID=$!
+
+            # Wait for AMCL to actually broadcast map->odom TF
+            echo "=== lifecycle_activator: waiting for map->odom TF ==="
+            for i in $(seq 1 120); do
+                if timeout 3 ros2 run tf2_ros tf2_echo map odom 2>/dev/null | grep -q "Translation"; then
+                    echo "=== lifecycle_activator: map->odom TF confirmed after ${i}s ==="
+                    break
+                fi
+                if [ "$i" -eq 120 ]; then
+                    echo "=== lifecycle_activator: WARNING map->odom TF not confirmed after 120s ==="
+                fi
+                sleep 1
             done
 
             echo "=== lifecycle_activator: done ==="

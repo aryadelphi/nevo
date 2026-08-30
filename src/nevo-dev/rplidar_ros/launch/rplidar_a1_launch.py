@@ -21,7 +21,7 @@ def generate_launch_description():
     
     return LaunchDescription([
         SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'),
-        SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', 'file:///home/rspx1/fastdds.xml'),
+        SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', 'file:///home/nevo/fastdds.xml'),
         SetEnvironmentVariable('ROS_DOMAIN_ID', '7'),
 
         DeclareLaunchArgument(

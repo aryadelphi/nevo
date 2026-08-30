@@ -343,9 +343,9 @@ void RobotApiNode::navToMapping(const std::string & robot_id,
     int rc = std::system(
         "sudo -n systemd-run --no-block --collect --property=KillMode=process "
         "--unit=nevo-restart-mapping "
-        "--uid=rspx1 --gid=rspx1 --setenv=HOME=/home/rspx1 "
-        "bash /home/rspx1/nevo_restart.sh mapping "
-        ">>/home/rspx1/nevo_restart.log 2>&1 &");
+        "--uid=nevo --gid=nevo --setenv=HOME=/home/nevo "
+        "bash /home/nevo/nevo_restart.sh mapping "
+        ">>/home/nevo/nevo_restart.log 2>&1 &");
     if (rc != 0) {
       RCLCPP_ERROR(this->get_logger(),
         "MAPPING_START: failed to spawn nevo_restart.sh (rc=%d)", rc);
@@ -1034,9 +1034,9 @@ void RobotApiNode::mappingToNav(const std::string & robot_id,
     int rc = std::system(
         "sudo -n systemd-run --no-block --collect --property=KillMode=process "
         "--unit=nevo-restart-nav "
-        "--uid=rspx1 --gid=rspx1 --setenv=HOME=/home/rspx1 "
-        "bash /home/rspx1/nevo_restart.sh nav "
-        ">>/home/rspx1/nevo_restart.log 2>&1 &");
+        "--uid=nevo --gid=nevo --setenv=HOME=/home/nevo "
+        "bash /home/nevo/nevo_restart.sh nav "
+        ">>/home/nevo/nevo_restart.log 2>&1 &");
     if (rc != 0) {
       RCLCPP_ERROR(this->get_logger(),
         "MAPPING_STOP: failed to spawn nevo_restart.sh (rc=%d)", rc);
@@ -2503,7 +2503,7 @@ void RobotApiNode::handleMapSelected(const std::string & raw_json)
         }
 
         std::string cmd =
-            "/home/rspx1/restart_map.sh '" + yaml_escaped + "'";
+            "/home/nevo/restart_map.sh '" + yaml_escaped + "'";
 
         RCLCPP_INFO(this->get_logger(),
             "MAP_SELECTED: loading map via restart: %s", cmd.c_str());

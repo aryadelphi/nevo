@@ -12,7 +12,7 @@ def generate_launch_description():
     
     # Path to the calibration file we generated earlier
     # Make sure this matches where you scp'd it on the Pi
-    camera_info_url = 'file:///home/rspx1/.ros/camera_info/c310_calibration.yaml'
+    camera_info_url = 'file:///home/nevo/.ros/camera_info/c310_calibration.yaml'
 
     # Camera Node
     camera_node = Node(
