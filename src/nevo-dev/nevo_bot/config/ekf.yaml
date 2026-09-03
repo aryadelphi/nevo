@@ -1,6 +1,6 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 15.0
+    frequency: 30.0
     two_d_mode: true
     publish_tf: true
 
@@ -25,18 +25,17 @@ ekf_filter_node:
     odom0_relative: false
     odom0_queue_size: 5
 
-    # RF2O laser odometry — DISABLED for now
-    # TODO: Will be replaced by wheel odom + IMU fusion in the future
-    # When ready, uncomment odom1 and configure for IMU sensor
-    # odom1: /odom_rf2o
-    # odom1_config: [false, false, false,
-    #                false, false, false,
-    #                true,  false, false,
-    #                false, false, true,
-    #                false, false, false]
-    # odom1_differential: false
-    # odom1_relative: false
-    # odom1_queue_size: 5
+    # MPU6050 IMU — gyro Z (yaw rate) + accelerometer X
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  true,  false, false]
+    imu0_differential: false
+    imu0_relative: true
+    imu0_queue_size: 5
+    imu0_remove_gravitational_acceleration: true
 
     # Process noise covariance (Q matrix)
     process_noise_covariance: [0.05,   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
