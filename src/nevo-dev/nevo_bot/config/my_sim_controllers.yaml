@@ -12,7 +12,7 @@ controller_manager:
 diff_cont:
   ros__parameters:
     publish_rate: 100.0
-    base_frame_id: base_footprint
+    base_frame_id: base_link
 
     left_wheel_names: ["left_wheel_joint"]
     right_wheel_names: ["right_wheel_joint"]

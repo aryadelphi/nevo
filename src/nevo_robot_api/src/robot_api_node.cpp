@@ -1079,7 +1079,7 @@ void RobotApiNode::flagCoordinate(const std::string & robot_id,
     // with the saved/reloaded map and navigation destinations line up.
     try {
       auto t = tf_buffer_.lookupTransform(
-        "map", "base_footprint", rclcpp::Time(0));
+        "map", "base_link", rclcpp::Time(0));
       x   = t.transform.translation.x;
       y   = t.transform.translation.y;
       yaw = tf2::getYaw(t.transform.rotation);
@@ -1090,7 +1090,7 @@ void RobotApiNode::flagCoordinate(const std::string & robot_id,
 
     } catch (const tf2::TransformException & e) {
       RCLCPP_WARN(this->get_logger(),
-        "MAPPING_FLAG: map->base_footprint unavailable (%s); "
+        "MAPPING_FLAG: map->base_link unavailable (%s); "
         "falling back to odom-frame position", e.what());
 
       if(has_last_position_) {

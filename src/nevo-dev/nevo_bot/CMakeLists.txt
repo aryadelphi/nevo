@@ -56,6 +56,7 @@ install(PROGRAMS
   scripts/exploration_save_node.py
   scripts/map_watcher_node.py
   scripts/ina226_bridge_node.py
+  scripts/imu_publisher.py
   scripts/smart_dock_final.py
   scripts/tag_pose_bridge.py
   scripts/smart_dock.py

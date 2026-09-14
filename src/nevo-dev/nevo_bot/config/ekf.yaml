@@ -1,17 +1,15 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 15.0
+    frequency: 5.0
     two_d_mode: true
     publish_tf: true
 
     map_frame: map
     odom_frame: odom
-    # base_footprint is ROOT of URDF (robot_core.xacro), base_link is its CHILD.
-    # EKF publishes odom->base_footprint so the full tree becomes:
-    #   map -> odom -> base_footprint (EKF) -> base_link / chassis / laser_frame (RSP)
-    # Publishing odom->base_link instead would give base_link TWO parents
-    # (odom from EKF, base_footprint from RSP) -> split TF tree -> slam fails.
-    base_link_frame: base_footprint
+    # base_link is ROOT of URDF (robot_core.xacro), base_footprint is its CHILD.
+    # EKF publishes odom->base_link so the full tree becomes:
+    #   map -> odom -> base_link (EKF) -> base_footprint / chassis / laser_frame / wheels (RSP)
+    base_link_frame: base_link
     world_frame: odom
 
     # Wheel encoder odometry — velocity only (no pose drift accumulation)
@@ -21,9 +19,22 @@ ekf_filter_node:
                    true,  false, false,
                    false, false, true,
                    false, false, false]
-    odom0_differential: false
-    odom0_relative: false
+    odom0_differential: true
+    odom0_relative: true
     odom0_queue_size: 5
+
+    # MPU6050 IMU — angular velocity only (gyro Z for yaw correction)
+    # Linear acceleration NOT fused — gravity removal unreliable on tilted IMU,
+    # and wheel odom already provides better velocity estimates.
+    imu0: /imu/data_raw
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  true,  true,  true,
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 5
 
     # RF2O laser odometry — DISABLED for now
     # TODO: Will be replaced by wheel odom + IMU fusion in the future
@@ -53,7 +64,7 @@ ekf_filter_node:
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.02,   0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.01,   0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.01,   0.0,
-                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.015]
+                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.025]
 
     # Initial estimate covariance
     initial_estimate_covariance: [1e-9, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,     0.0,    0.0,    0.0,

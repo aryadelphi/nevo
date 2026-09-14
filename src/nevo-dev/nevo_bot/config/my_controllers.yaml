@@ -26,15 +26,32 @@ diff_cont:
     twist_covariance_diagonal: [0.001, 0.001, 1e6, 1e6, 1e6, 0.01]
     pose_covariance_diagonal: [0.001, 0.001, 1e6, 1e6, 1e6, 0.01]
 
-# --- Limits (Jazzy: has_*_limits params removed; use NaN to disable) ---
+# # --- Limits (Jazzy: has_*_limits params removed; use NaN to disable) ---
+#     # Linear limits (Moving forward/backward)
+#     linear.x.max_velocity: .nan          # NaN = unlimited
+#     linear.x.min_velocity: .nan          # NaN = unlimited
+#     linear.x.max_acceleration: 1.5      # m/s^2
+#     linear.x.min_acceleration: -1.5     # m/s^2
+# 
+#     # Angular limits (Turning)
+#     angular.z.max_velocity: 0.5         # rad/s
+#     angular.z.min_velocity: -0.5        # rad/s
+#     angular.z.max_acceleration: 3.0     # rad/s^2
+#     angular.z.min_acceleration: -3.0    # rad/s^2
+
+# --- ADD THESE LIMITS BELOW ---
     # Linear limits (Moving forward/backward)
-    linear.x.max_velocity: .nan          # NaN = unlimited
-    linear.x.min_velocity: .nan          # NaN = unlimited
-    linear.x.max_acceleration: 1.5      # m/s^2
-    linear.x.min_acceleration: -1.5     # m/s^2
+    linear.x.has_velocity_limits: false
+    linear.x.has_acceleration_limits: true
+    linear.x.max_velocity: 0.5          # m/s
+    linear.x.min_velocity: -0.5         # m/s
+    linear.x.max_acceleration: 0.4      # m/s^2
+    linear.x.min_acceleration: -0.4     # m/s^2
 
     # Angular limits (Turning)
-    angular.z.max_velocity: 0.5         # rad/s
-    angular.z.min_velocity: -0.5        # rad/s
-    angular.z.max_acceleration: 3.0     # rad/s^2
-    angular.z.min_acceleration: -3.0    # rad/s^2
+    angular.z.has_velocity_limits: true
+    angular.z.has_acceleration_limits: true
+    angular.z.max_velocity: 1.5         # rad/s
+    angular.z.min_velocity: -1.5        # rad/s
+    angular.z.max_acceleration: 1.5     # rad/s^2
+    angular.z.min_acceleration: -1.5    # rad/s^2

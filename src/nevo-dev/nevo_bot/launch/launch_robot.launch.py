@@ -104,6 +104,12 @@ def generate_launch_description():
         parameters=[lidar_filter_config, {'use_sim_time': False}],
         remappings=[('scan', '/scan'), ('scan_filtered', '/scan_filtered')]
     )
+    imu_node = Node(
+        package='nevo_bot',
+        executable='imu_publisher.py',
+        name='imu_publisher',
+        output='screen'
+    )
     # RF2O disabled for now — will use wheel odom + IMU in the future
     # Uncomment when IMU sensor is integrated
     # rf2o_node = Node(
@@ -332,7 +338,7 @@ def generate_launch_description():
         rsp, rplidar_activate, ws_bridge, diagnostic_node,
 
         # Layer 1
-        laser_filter_node, delayed_controller_manager,
+        laser_filter_node, imu_node, delayed_controller_manager,
 
         # Layer 2
         layer2_on_controller_start,
