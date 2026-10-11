@@ -35,15 +35,25 @@
 
     <link name="c310_camera_link_optical"></link>
 
+    <!--
+      Gazebo Harmonic: Classic libgazebo_ros_camera.so replaced by a native
+      camera sensor. Topic c310/image_raw makes gz publish
+        /c310/image_raw     image (bridged to ROS 1:1)
+        /c310/camera_info   derived from the topic's parent path
+      which is exactly what the AprilTag docking pipeline subscribes to.
+    -->
     <gazebo reference="c310_camera_link">
         <sensor name="c310_camera" type="camera">
             <pose>0 0 0 0 0 0</pose>
             <visualize>false</visualize>
-            <update_rate>15</update_rate>
+            <always_on>true</always_on>
+            <update_rate>5</update_rate>
+            <topic>c310/image_raw</topic>
+            <gz_frame_id>c310_camera_link_optical</gz_frame_id>
             <camera>
                 <horizontal_fov>1.089</horizontal_fov>
                 <image>
-                    <format>B8G8R8</format>
+                    <format>R8G8B8</format>
                     <width>640</width>
                     <height>480</height>
                 </image>
@@ -52,13 +62,6 @@
                     <far>8.0</far>
                 </clip>
             </camera>
-            <plugin name="c310_camera_controller" filename="libgazebo_ros_camera.so">
-                <frame_name>c310_camera_link_optical</frame_name>
-                <ros>
-                    <argument>camera_info:=/c310/camera_info</argument>
-                    <argument>image_raw:=/c310/image_raw</argument>
-                </ros>
-            </plugin>
         </sensor>
     </gazebo>
 

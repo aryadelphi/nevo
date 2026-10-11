@@ -10,6 +10,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -51,6 +52,14 @@ def generate_launch_description():
         description="Seconds without /odometry/filtered before stale warning/fail",
     )
 
+    stack_lock_arg = DeclareLaunchArgument(
+        "enable_stack_lock",
+        default_value="true",
+        description="Take the single-instance stack lock and terminate other "
+                    "nevo_bot launches. Simulation layers (sim_mapping/sim_nav "
+                    "next to launch_sim) set this to false so they can coexist.",
+    )
+
     # ── Config file path ───────────────────────────────────────────────────
     config_file = PathJoinSubstitution([
         FindPackageShare("nevo_diagnostic_node"),
@@ -75,6 +84,9 @@ def generate_launch_description():
                 "grace_period_sec":   LaunchConfiguration("grace_period_sec"),
                 "global_timeout_sec": LaunchConfiguration("global_timeout_sec"),
                 "odom_timeout_sec":   LaunchConfiguration("odom_timeout_sec"),
+                # explicit bool: LaunchConfiguration alone would land as a string
+                "enable_stack_lock":  ParameterValue(
+                    LaunchConfiguration("enable_stack_lock"), value_type=bool),
             },
         ],
     )
@@ -89,5 +101,6 @@ def generate_launch_description():
         grace_period_arg,
         global_timeout_arg,
         odom_timeout_arg,
+        stack_lock_arg,
         diagnostic_node,
     ])

@@ -23,5 +23,8 @@
 
   <export>
     <build_type>ament_cmake</build_type>
+    <!-- Lets gz-sim resolve model://nevo_bot/... URIs (AprilTag texture) when
+         launched through ros_gz_sim's gz_sim.launch.py -->
+    <gazebo_ros gazebo_model_path="${prefix}/../"/>
   </export>
 </package>

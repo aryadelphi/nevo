@@ -23,24 +23,41 @@ def generate_launch_description():
         'auto', default_value='false',
         description='Run autonomous exploration (m-explore)'
     )
+    declare_core_arg = DeclareLaunchArgument(
+        'core', default_value='false',
+        description='Also start Layer 0 (ws_bridge, diagnostic, safety_fail). '
+                    'launch_sim.launch.py already provides all three, so the sim '
+                    'layers default to false — otherwise two ws_bridge nodes fight '
+                    'over the same cloud session.'
+    )
     declare_robot_id = DeclareLaunchArgument('robot_id', default_value='TFRB2')
     declare_ui_id = DeclareLaunchArgument('ui_id', default_value='TFUI2')
     declare_ws_uri = DeclareLaunchArgument('ws_uri_primary', default_value='wss://tifa-ws.forgixrobotic.com')
+    declare_nevo_extras_arg = DeclareLaunchArgument(
+        'nevo_extras', default_value='false',
+        description='Also start the nevo robot_api layer (robot_api, '
+                    'sensor_manager, slam_supervisor, position_sensor). '
+                    'Default false = pure nav2 + slam_toolbox + ros2_control.'
+    )
+    nevo_extras = LaunchConfiguration('nevo_extras')
 
     explore = LaunchConfiguration('auto')
+    core = LaunchConfiguration('core')
 
-    # Layer 0 — immediate
+    # Layer 0 — immediate (only when launch_sim is not already providing it)
     ws_bridge = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_ws_bridge'), 'launch', 'ws_bridge.launch.py')
         ),
-        launch_arguments={'ws_uri_primary': LaunchConfiguration('ws_uri_primary'), 'robot_id': LaunchConfiguration('robot_id'), 'network_mode': 'auto'}.items()
+        launch_arguments={'ws_uri_primary': LaunchConfiguration('ws_uri_primary'), 'robot_id': LaunchConfiguration('robot_id'), 'network_mode': 'auto'}.items(),
+        condition=IfCondition(core)
     )
     diagnostic_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_diagnostic_node'), 'launch', 'diagnostic.launch.py')
         ),
-        launch_arguments={'mode': 'mapping', 'robot_id': 'TFRB2', 'grace_period_sec': '10', 'global_timeout_sec': '60'}.items()
+        launch_arguments={'mode': 'mapping', 'robot_id': 'TFRB2', 'grace_period_sec': '10', 'global_timeout_sec': '60', 'enable_stack_lock': 'false'}.items(),
+        condition=IfCondition(core)
     )
 
     laser_filter_node = Node(
@@ -71,27 +88,35 @@ def generate_launch_description():
     )
 
     safety_fail_node = Node(
-        package='nevo_bot', executable='safety_fail_node', name='safety_fail_node', output='log'
+        package='nevo_bot', executable='safety_fail_node', name='safety_fail_node', output='log',
+        # sim time stamps, so diff_cont's cmd_vel_timeout works (see launch_sim)
+        parameters=[{"use_sim_time": True}],
+        condition=IfCondition(core)
     )
 
     robot_api = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_robot_api'), 'launch', 'robot_api.launch.py')
         ),
-        launch_arguments={'robot_id': LaunchConfiguration('robot_id'), 'ui_id': LaunchConfiguration('ui_id')}.items()
+        launch_arguments={'robot_id': LaunchConfiguration('robot_id'), 'ui_id': LaunchConfiguration('ui_id')}.items(),
+        condition=IfCondition(nevo_extras)
     )
     sensor_manager = Node(
-        package='nevo_robot_api', executable='sensor_manager_node', name='sensor_manager_node'
+        package='nevo_robot_api', executable='sensor_manager_node', name='sensor_manager_node',
+        condition=IfCondition(nevo_extras)
     )
     slam_supervisor = Node(
-        package='nevo_robot_api', executable='slam_supervisor_node', name='slam_supervisor_node'
+        package='nevo_robot_api', executable='slam_supervisor_node', name='slam_supervisor_node',
+        condition=IfCondition(nevo_extras)
     )
     position_sensor_node = Node(
-        package='nevo_robot_api', executable='position_sensor_node', name='position_sensor_node'
+        package='nevo_robot_api', executable='position_sensor_node', name='position_sensor_node',
+        condition=IfCondition(nevo_extras)
     )
 
     return LaunchDescription([
-        declare_explore_arg, declare_robot_id, declare_ui_id, declare_ws_uri,
+        declare_explore_arg, declare_core_arg, declare_robot_id, declare_ui_id, declare_ws_uri,
+        declare_nevo_extras_arg,
         ws_bridge, diagnostic_node,
         TimerAction(period=2.0, actions=[laser_filter_node]),
         TimerAction(period=5.0, actions=[slam_activate]),

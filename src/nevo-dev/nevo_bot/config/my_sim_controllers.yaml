@@ -6,7 +6,9 @@ controller_manager:
     diff_cont:
       type: diff_drive_controller/DiffDriveController
 
-    joint_broad:
+    # Must match the name passed to `controller_manager spawner` in
+    # launch_sim.launch.py / docking_sim.launch.py
+    joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
 diff_cont:
@@ -22,7 +24,9 @@ diff_cont:
     wheel_radius: 0.0635
     wheel_radius_multiplier: 1.0 
     
-    use_stamped_vel: false
+    # diff_drive_controller on Jazzy only accepts geometry_msgs/TwistStamped on
+    # ~/cmd_vel (use_stamped_vel was removed); safety_fail_node already
+    # publishes TwistStamped there.
     
     enable_odom_tf: true
     odom_frame_id: odom

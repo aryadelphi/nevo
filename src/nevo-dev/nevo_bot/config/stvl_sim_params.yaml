@@ -2,11 +2,14 @@ amcl:
   ros__parameters:
     use_sim_time: True
     
-    alpha1: 0.2
-    alpha2: 0.2
-    alpha3: 0.2
-    alpha4: 0.2
-    alpha5: 0.2
+    # Sim odometry is near-perfect (no wheel slip), so the stock 0.2 alphas
+    # injected motion noise faster than scan updates could remove it: sigma
+    # floored at ~0.25 m regardless of how good the scan match was.
+    alpha1: 0.05
+    alpha2: 0.05
+    alpha3: 0.05
+    alpha4: 0.05
+    alpha5: 0.0
     base_frame_id: "base_link"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
@@ -14,12 +17,12 @@ amcl:
     do_beamskip: false
     global_frame_id: "map"
     lambda_short: 0.1
-    laser_likelihood_max_dist: 2.0
+    laser_likelihood_max_dist: 0.5
     laser_max_range: 100.0
     laser_min_range: -1.0
     laser_model_type: "likelihood_field"
     max_beams: 60
-    max_particles: 1000
+    max_particles: 3000
     min_particles: 200
     odom_frame_id: "odom"
     pf_err: 0.05
@@ -32,11 +35,13 @@ amcl:
     sigma_hit: 0.2
     tf_broadcast: true
     transform_tolerance: 2.0
-    update_min_a: 0.2
-    update_min_d: 0.25
-    z_hit: 0.5
+    update_min_a: 0.05
+    update_min_d: 0.05
+    # Measurement-dominant weights: the stock 0.5/0.5 split left the
+    # likelihood half-flat, too weak to contract the particle cloud.
+    z_hit: 0.95
     z_max: 0.05
-    z_rand: 0.5
+    z_rand: 0.05
     z_short: 0.05
     scan_topic: /scan_filtered
 
@@ -145,12 +150,15 @@ local_costmap:
       resolution: 0.1
       footprint: "[[-0.35, -0.30], [-0.35, 0.30], [0.35, 0.30], [0.35, -0.30]]"
 
-      plugins: ["obstacle_layer", "stvl_layer", "inflation_layer"]
+      # STVL removed: the depth pointcloud layer is redundant with the lidar
+      # obstacle_layer in this sim. To re-enable, add "stvl_layer" back to
+      # this list (config block kept below).
+      plugins: ["obstacle_layer", "inflation_layer"]
 
-      # --- CHANGED: STVL Source and Topic for Simulation ---
+      # --- DISABLED: not in the plugins list above (kept for re-enabling) ---
       stvl_layer:
         plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
-        enabled: True
+        enabled: False
         voxel_decay: 2.0
         decay_model: 0
         voxel_size: 0.05
@@ -221,7 +229,8 @@ global_costmap:
       rolling_window: false
       footprint: "[[-0.35, -0.30], [-0.35, 0.30], [0.35, 0.30], [0.35, -0.30]]"
 
-      plugins: ["static_layer", "obstacle_layer", "stvl_layer", "inflation_layer"]
+      # stvl_layer disabled (not in plugins list) — see local_costmap note.
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
 
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -242,10 +251,10 @@ global_costmap:
           raytrace_max_range: 10.0
           raytrace_min_range: 0.0
 
-      # --- CHANGED: STVL Source and Topic for Simulation ---
+      # --- DISABLED: not in the plugins list above (kept for re-enabling) ---
       stvl_layer:
         plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
-        enabled: True
+        enabled: False
         voxel_decay: 2.0 
         decay_model: 0
         voxel_size: 0.05
@@ -379,6 +388,38 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+# nav2's navigation_launch.py always brings collision_monitor up as part of the
+# managed node set, and it fails to CONFIGURE ("observation_sources is not
+# initialized") without this section — which aborted the whole Nav2 bringup and
+# left every other server inactive. Not present in the original params file.
+collision_monitor:
+  ros__parameters:
+    use_sim_time: True
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: True
+    stop_pub_timeout: 2.0
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      min_points: 6
+      visualize: False
+      enabled: True
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/scan_filtered"
+      enabled: True
 
 lifecycle_manager_navigation:
   ros__parameters:

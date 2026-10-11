@@ -7,16 +7,13 @@ Adafruit_MPU6050 mpu;
 void setup(void) {
   // Use a fast baud rate to prevent serial bottlenecking
   Serial.begin(115200);
-  
-  // Wait for serial monitor to open (optional, good for debugging)
-  while (!Serial)
-    delay(10);
 
   Serial.println("Initializing MPU6050...");
 
-  // Wire.begin() automatically uses pins 20 (SDA) and 21 (SCL) on the Mega
+  Wire.begin(4, 0);
+
   if (!mpu.begin()) {
-    Serial.println("Failed to find MPU6050 chip. Check wiring!");
+    Serial.println("Failed to find MPU6050 chip. Check wiring on D1/D2!");
     while (1) {
       delay(10);
     }
@@ -24,7 +21,6 @@ void setup(void) {
   Serial.println("MPU6050 Found!");
 
   // Setup motion tracking ranges
-  // Lower range = higher precision, but might clip on sudden impacts
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   
@@ -37,15 +33,12 @@ void setup(void) {
 }
 
 void loop() {
-  // Get new sensor events with the most recent readings
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
-  // Capture the timestamp for this specific reading
   unsigned long timestamp = millis();
 
   // Print data in CSV format: time, ax, ay, az, gx, gy, gz
-  // Accelerometer outputs in m/s^2. Gyro outputs in rad/s.
   Serial.print(timestamp);
   Serial.print(",");
   Serial.print(a.acceleration.x);
@@ -60,6 +53,6 @@ void loop() {
   Serial.print(",");
   Serial.println(g.gyro.z);
 
-  // Delay to control the publish rate (e.g., 20ms = 50Hz)
+  // 20ms delay = 50Hz publish rate
   delay(20); 
 }

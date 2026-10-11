@@ -53,7 +53,18 @@ DiagnosticNode::DiagnosticNode(const rclcpp::NodeOptions & options)
   // manually launched while another stack was already running, the newest
   // launch must win, otherwise both stacks publish the same robot_id and the
   // cloud UI gets DUPLICATE_ROBOT_ID storms.
-  acquireStackLock();
+  //
+  // Simulation is the exception: launch_sim.launch.py (gz-sim + robot) and
+  // sim_mapping/sim_nav (SLAM/Nav2) are two halves of ONE session, so the
+  // second launch must not tear the first one down. Those launches pass
+  // enable_stack_lock:=false; hardware launches keep the default (true).
+  this->declare_parameter<bool>("enable_stack_lock", true);
+  if (this->get_parameter("enable_stack_lock").as_bool()) {
+    acquireStackLock();
+  } else {
+    RCLCPP_INFO(get_logger(),
+      "[NEVO DIAG] Single-instance stack lock disabled (enable_stack_lock=false).");
+  }
 
   // Set requirement berdasarkan mode
   if (mode_ == "mapping") {

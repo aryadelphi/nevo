@@ -46,6 +46,7 @@ install(
     description
     launch
     meshes
+    models
     maps
     worlds
     scripts
@@ -59,6 +60,7 @@ install(PROGRAMS
   scripts/imu_publisher.py
   scripts/smart_dock_final.py
   scripts/tag_pose_bridge.py
+  scripts/archive_tests/tag_pose_bridge_sim.py   # used by launch/docking_sim.launch.py
   scripts/smart_dock.py
   scripts/pure_dock.py
   scripts/full_dock.py
