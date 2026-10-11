@@ -58,13 +58,6 @@ install(PROGRAMS
   scripts/map_watcher_node.py
   scripts/ina226_bridge_node.py
   scripts/imu_publisher.py
-  scripts/smart_dock_final.py
-  scripts/tag_pose_bridge.py
-  scripts/archive_tests/tag_pose_bridge_sim.py   # used by launch/docking_sim.launch.py
-  scripts/smart_dock.py
-  scripts/pure_dock.py
-  scripts/full_dock.py
-  scripts/simple_dock.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

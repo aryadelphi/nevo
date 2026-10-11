@@ -62,6 +62,13 @@ def generate_launch_description():
                     'sensor_manager). Default false = pure nav2 + ros2_control.'
     )
     nevo_extras = LaunchConfiguration('nevo_extras')
+    # Sent once by localization_launch's lifecycle activator after AMCL is
+    # active (an earlier publish here was lost: AMCL was not up yet).
+    declare_initial_pose_args = [
+        DeclareLaunchArgument('initial_pose_x', default_value='0.691'),
+        DeclareLaunchArgument('initial_pose_y', default_value='-0.788'),
+        DeclareLaunchArgument('initial_pose_yaw', default_value='-0.418'),
+    ]
 
     pkg_dir = get_package_share_directory(package_name)
     nav2_params_file = os.path.join(pkg_dir, 'config', 'stvl_sim_params.yaml')
@@ -94,14 +101,12 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_dir, 'launch', 'localization_launch.py')
         ),
-        launch_arguments={'map': MapPath(), 'params_file': nav2_params_file, 'use_sim_time': use_sim_time}.items()
-    )
-
-    initial_pose_node = Node(
-        package='nevo_bot', executable='publish_initial_pose',
-        name='initial_pose_pub', output='log',
-        parameters=[{'use_sim_time': True}],
-        arguments=['0.691', '-0.788', '-0.418']
+        launch_arguments={
+            'map': MapPath(), 'params_file': nav2_params_file, 'use_sim_time': use_sim_time,
+            'initial_pose_x': LaunchConfiguration('initial_pose_x'),
+            'initial_pose_y': LaunchConfiguration('initial_pose_y'),
+            'initial_pose_yaw': LaunchConfiguration('initial_pose_yaw'),
+        }.items()
     )
 
     navigation_launch = IncludeLaunchDescription(
@@ -132,11 +137,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_map_arg, declare_core_arg, declare_robot_id, declare_ui_id, declare_ws_uri,
-        declare_nevo_extras_arg,
+        declare_nevo_extras_arg, *declare_initial_pose_args,
         ws_bridge, diagnostic_node,
         TimerAction(period=1.0, actions=[laser_filter_node]),
         TimerAction(period=2.0, actions=[localization_launch]),
-        TimerAction(period=5.0, actions=[initial_pose_node]),
         TimerAction(period=10.0, actions=[navigation_launch]),
         TimerAction(period=12.0, actions=[safety_fail_node]),
         TimerAction(period=14.0, actions=[robot_api, sensor_manager]),

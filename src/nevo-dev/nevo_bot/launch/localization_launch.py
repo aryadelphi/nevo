@@ -62,6 +62,14 @@ def generate_launch_description():
         'use_respawn', default_value='False')
     declare_log_level_cmd = DeclareLaunchArgument(
         'log_level', default_value='info')
+    # Initial pose the lifecycle activator sends once AMCL is active (map frame).
+    # Defaults (0, 0, 0) keep the real-robot behaviour; sim_nav passes its own.
+    declare_initial_pose_cmds = [
+        DeclareLaunchArgument(f'initial_pose_{k}', default_value='0.0',
+                              description=f'AMCL initial pose {k} in map frame'
+                                          + (' (rad)' if k == 'yaw' else ' (m)'))
+        for k in ('x', 'y', 'yaw')
+    ]
 
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
@@ -156,37 +164,36 @@ def generate_launch_description():
             lifecycle_set /amcl activate "activating amcl"
             sleep 3
 
-            # Publish initial pose repeatedly on a background timer
-            echo "=== lifecycle_activator: publishing initial pose ==="
-            (
-                while true; do
-                    ros2 topic pub --once /initialpose geometry_msgs/PoseWithCovarianceStamped "{
-                      header: {frame_id: 'map'},
-                      pose: {
-                        pose: {position: {x: 0.0, y: 0.0, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}},
-                        covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0625]
-                      }
-                    }" 2>/dev/null
-                    sleep 5
-                done
-            ) &
-            INITIALPOSE_PID=$!
-
-            # Wait for AMCL to actually broadcast map->odom TF
-            echo "=== lifecycle_activator: waiting for map->odom TF ==="
-            for i in $(seq 1 120); do
-                if timeout 3 ros2 run tf2_ros tf2_echo map odom 2>/dev/null | grep -q "Translation"; then
-                    echo "=== lifecycle_activator: map->odom TF confirmed after ${i}s ==="
+            # Publish the initial pose until AMCL broadcasts map->odom, then STOP.
+            # (An endless re-publish loop would snap AMCL back to this pose every
+            # few seconds for the whole run.) Pose comes from INIT_X/Y/YAW.
+            QZ=$(python3 -c "import math; print(math.sin(float('$INIT_YAW') / 2))")
+            QW=$(python3 -c "import math; print(math.cos(float('$INIT_YAW') / 2))")
+            echo "=== lifecycle_activator: initial pose x=$INIT_X y=$INIT_Y yaw=$INIT_YAW ==="
+            for i in $(seq 1 24); do
+                ros2 topic pub --once /initialpose geometry_msgs/PoseWithCovarianceStamped "{
+                  header: {frame_id: 'map'},
+                  pose: {
+                    pose: {position: {x: $INIT_X, y: $INIT_Y, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: $QZ, w: $QW}},
+                    covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0625]
+                  }
+                }" >/dev/null 2>&1
+                if timeout 5 ros2 run tf2_ros tf2_echo map odom 2>/dev/null | grep -q "Translation"; then
+                    echo "=== lifecycle_activator: map->odom TF confirmed after publish #${i} ==="
                     break
                 fi
-                if [ "$i" -eq 120 ]; then
-                    echo "=== lifecycle_activator: WARNING map->odom TF not confirmed after 120s ==="
+                if [ "$i" -eq 24 ]; then
+                    echo "=== lifecycle_activator: WARNING map->odom TF not confirmed after 24 publishes ==="
                 fi
-                sleep 1
             done
 
             echo "=== lifecycle_activator: done ==="
         '''],
+        additional_env={
+            'INIT_X': LaunchConfiguration('initial_pose_x'),
+            'INIT_Y': LaunchConfiguration('initial_pose_y'),
+            'INIT_YAW': LaunchConfiguration('initial_pose_yaw'),
+        },
         output='screen'
     )
 
@@ -200,6 +207,8 @@ def generate_launch_description():
     ld.add_action(declare_container_name_cmd)
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
+    for cmd in declare_initial_pose_cmds:
+        ld.add_action(cmd)
     ld.add_action(load_nodes)
     ld.add_action(load_composable_nodes)
     ld.add_action(lifecycle_script)

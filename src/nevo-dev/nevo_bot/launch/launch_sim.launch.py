@@ -17,6 +17,32 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
+# glvnd vendor file the NVIDIA driver installs (inside distrobox --nvidia too).
+NVIDIA_EGL_VENDOR = '/usr/share/glvnd/egl_vendor.d/10_nvidia.json'
+
+
+def nvidia_prime_env():
+    """Render gz (sensors + GUI) and RViz on the NVIDIA dGPU of a hybrid laptop.
+
+    Without PRIME offload, glvnd picks the Intel iGPU and the GPU sensors
+    (gpu_lidar, depth/RGB cameras) stall the physics step: measured RTF ~0.28
+    on iGPU vs ~0.60 on the GTX 1650. Skipped when the NVIDIA vendor file is
+    absent (non-NVIDIA machine); an already-exported value wins, so
+    `export __NV_PRIME_RENDER_OFFLOAD=0` opts out.
+    """
+    if not os.path.exists(NVIDIA_EGL_VENDOR):
+        return []
+    env = {
+        '__NV_PRIME_RENDER_OFFLOAD': '1',
+        '__GLX_VENDOR_LIBRARY_NAME': 'nvidia',
+        '__EGL_VENDOR_LIBRARY_FILENAMES': NVIDIA_EGL_VENDOR,
+    }
+    return [
+        SetEnvironmentVariable(name=k, value=EnvironmentVariable(k, default_value=v))
+        for k, v in env.items()
+    ]
+
+
 class WorldPath(Substitution):
     """Resolve the `world` argument to an absolute gz world file path.
 
@@ -122,7 +148,7 @@ def generate_launch_description():
 
     # This host filters UDP multicast on the physical NIC, so gz-transport
     # peers bound to it never discover each other: /world/<name>/create never
-    # appears and `create` waits forever (README_amcl_health_sim.md §6).
+    # appears and `create` waits forever.
     # Binding discovery to loopback keeps true multicast working. An
     # already-exported GZ_IP wins, so the workaround can be dropped once the
     # NIC multicast problem is fixed. Never use GZ_DISCOVERY_MULTICAST_IP.
@@ -188,8 +214,6 @@ def generate_launch_description():
         arguments=[
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/c310/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/c310/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/camera/depth/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
             '/camera/depth/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
             '/camera/depth/image_raw/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
@@ -279,6 +303,8 @@ def generate_launch_description():
     ld.add_action(declare_nevo_extras_arg)
     ld.add_action(gz_resource_path)
     ld.add_action(gz_discovery_ip)
+    for action in nvidia_prime_env():
+        ld.add_action(action)
     ld.add_action(gazebo)
     ld.add_action(rsp)
     ld.add_action(ws_bridge)

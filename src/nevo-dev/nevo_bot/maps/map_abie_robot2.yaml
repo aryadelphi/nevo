@@ -1,7 +1,0 @@
-image: map_abie_robot2.pgm
-mode: trinary
-resolution: 0.05
-origin: [-5.73, -3.58, 0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.25

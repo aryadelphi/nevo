@@ -47,8 +47,8 @@ bt_navigator:
     odom_topic: /diff_cont/odom
     bt_loop_duration: 20
     default_server_timeout: 3000
-    default_nav_to_pose_bt_xml: "/home/nevo/nevo_ws/install/nevo_bot/share/nevo_bot/config/navigate_to_pose_w_relocalization.xml"
-    default_nav_through_poses_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
+    default_nav_to_pose_bt_xml: "$(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
+    default_nav_through_poses_bt_xml: "$(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
     wait_for_service_timeout: 5000
     action_server_result_timeout: 900.0
     navigators: ["navigate_to_pose", "navigate_through_poses"]
@@ -375,5 +375,4 @@ lifecycle_manager_navigation:
         "bt_navigator",
         "waypoint_follower",
         "velocity_smoother",
-        "docking_server",
       ]

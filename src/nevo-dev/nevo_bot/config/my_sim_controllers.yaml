@@ -7,7 +7,7 @@ controller_manager:
       type: diff_drive_controller/DiffDriveController
 
     # Must match the name passed to `controller_manager spawner` in
-    # launch_sim.launch.py / docking_sim.launch.py
+    # launch_sim.launch.py
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 

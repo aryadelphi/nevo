@@ -47,8 +47,8 @@ bt_navigator:
     odom_topic: /diff_cont/odom
     bt_loop_duration: 10
     default_server_timeout: 20
-    default_nav_to_pose_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
-    default_nav_through_poses_bt_xml: "/opt/ros/jazzy/share/nav2_bt_navigator/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
+    default_nav_to_pose_bt_xml: "$(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_to_pose_w_replanning_and_recovery.xml"
+    default_nav_through_poses_bt_xml: "$(find-pkg-share nav2_bt_navigator)/behavior_trees/navigate_through_poses_w_replanning_and_recovery.xml"
     wait_for_service_timeout: 1000
     action_server_result_timeout: 900.0
     navigators: ["navigate_to_pose", "navigate_through_poses"]
@@ -148,50 +148,6 @@ controller_server:
       Oscillation:
         scale: 1.0
         oscillation_reset_dist: 0.05
-
-docking_server:
-  ros__parameters:
-    use_sim_time: False
-    controller_frequency: 10.0
-    transform_tolerance: 1.5
-    initial_perception_timeout: 10.0
-    wait_charge_timeout: 10.0
-    dock_approach_timeout: 60.0
-    undock_linear_tolerance: 0.05
-    undock_angular_tolerance: 0.1
-    max_retries: 3
-    base_frame: "base_link"
-    fixed_frame: "odom"
-    dock_backwards: false
-    dock_prestaging_tolerance: 1.5
-    dock_plugins: ['nova_carter_dock']
-    
-    nova_carter_dock:
-      plugin: 'opennav_docking::SimpleChargingDock'
-      staging_x_offset: -1.5
-      use_external_detection_pose: true
-      external_detection_timeout: 5.0
-      external_detection_translation_x: -0.50 
-      external_detection_translation_y: 0.0
-      external_detection_rotation_pitch: 1.57 
-      external_detection_rotation_roll: -1.57
-      external_detection_rotation_yaw: 0.0
-      filter_coef: 0.1
-      use_battery_status: false
-      use_stall_detection: false
-
-      controller:
-        k_phi: 3.0
-        k_delta: 2.0
-        v_linear_min: 0.1
-        v_linear_max: 0.2
-        v_angular_max: 0.5
-
-    docks: ['dock0']
-    dock0:
-      type: 'nova_carter_dock'
-      frame: map
-      pose: [3.236, 8.303, 0.053]
 
 local_costmap:
   local_costmap:
