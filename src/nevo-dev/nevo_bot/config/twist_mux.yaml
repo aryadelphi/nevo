@@ -2,13 +2,24 @@ twist_mux:
   ros__parameters:
     use_stamped: false
 
+    # One input per source; the highest priority that is publishing wins.
+    # Output -> /diff_cont/cmd_vel_unstamped_raw -> safety_fail_node -> diff_cont.
     topics:
+      # Nav2: controller_server and behavior_server publish /cmd_vel_nav,
+      # velocity_smoother turns that into /cmd_vel_smoothed.
       navigation:
-        topic: /cmd_vel_nav
-        timeout: 0.3
+        topic: /cmd_vel_smoothed
+        timeout: 0.5
         priority: 10
 
+      # Dashboard TELEOP (robot_api remaps its output to /cmd_vel_remote).
+      remote:
+        topic: /cmd_vel_remote
+        timeout: 0.5
+        priority: 20
+
+      # Local teleop (teleop_twist_keyboard's default topic) overrides everything.
       teleop:
         topic: /cmd_vel
         timeout: 0.5
-        priority: 20
+        priority: 30

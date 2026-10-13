@@ -51,7 +51,8 @@ private:
 
   rclcpp::Logger logger_;
 
-  std::chrono::time_point<std::chrono::system_clock> time_;
+  // Consecutive encoder reads that failed (timeout / garbled reply).
+  int enc_read_failures_ = 0;
   
 };
 

@@ -19,7 +19,8 @@ public:
 
   void setup(const std::string &serial_device, int32_t baud_rate, int32_t timeout_ms);
   void sendEmptyMsg();
-  void readEncoderValues(int &val_1, int &val_2);
+  // Returns false (and leaves val_1/val_2 untouched) if the reply is not two integers.
+  bool readEncoderValues(int &val_1, int &val_2);
   void setMotorValues(int val_1, int val_2);
   void setPidValues(float k_p, float k_d, float k_i, float k_o);
 

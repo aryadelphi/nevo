@@ -1,6 +1,6 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 10.0
+    frequency: 30.0
     two_d_mode: true
     publish_tf: true
 
@@ -19,8 +19,6 @@ ekf_filter_node:
                    true,  false, false,
                    false, false, true,
                    false, false, false]
-    odom0_differential: true
-    odom0_relative: true
     odom0_queue_size: 5
 
     # MPU6050 IMU — angular velocity only (gyro Z for yaw correction)

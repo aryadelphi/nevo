@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <deque>
+#include <chrono>
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
@@ -19,6 +21,14 @@ public:
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
 private:
+  // Cloud send queue: the server rejects more than 10 messages/s
+  // (RATE_LIMIT_EXCEEDED), so bursts are queued and drained at <= cloud_max_msgs_per_sec_.
+  void drainCloudQueue();
+  std::deque<std::string> cloud_queue_;
+  std::deque<std::chrono::steady_clock::time_point> cloud_sent_times_;
+  rclcpp::TimerBase::SharedPtr cloud_drain_timer_;
+  int cloud_max_msgs_per_sec_ = 8;
+  size_t cloud_queue_limit_ = 200;
   void wsOutCallback(
     const std_msgs::msg::String::SharedPtr msg);
 

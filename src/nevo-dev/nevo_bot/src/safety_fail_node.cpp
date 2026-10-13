@@ -34,25 +34,32 @@ void SafetyFailNode::cmdVelCallback(
   last_cmd_ = *msg;
   last_cmd_time_ = this->now();
   received_cmd_ = true;
+  // Forward immediately instead of waiting up to 50 ms for the next timer tick.
+  publish(last_cmd_, last_cmd_time_);
+}
+
+void SafetyFailNode::publish(const geometry_msgs::msg::Twist & twist, const rclcpp::Time & stamp)
+{
+  geometry_msgs::msg::TwistStamped output;
+  output.header.stamp = stamp;
+  output.header.frame_id = "base_link";
+  output.twist = twist;
+  safe_cmd_pub_->publish(output);
+  last_pub_time_ = stamp;
 }
 
 void SafetyFailNode::watchdogLoop()
 {
-  geometry_msgs::msg::TwistStamped output;
   auto now = this->now();
-  output.header.stamp = now;
-  output.header.frame_id = "base_link";
 
   if (!received_cmd_ || (now - last_cmd_time_) > cmd_timeout_) {
-    // FAIL SAFE
-    output.twist.linear.x  = 0.0;
-    output.twist.angular.z = 0.0;
-  } else {
-    // PASS THROUGH
-    output.twist = last_cmd_;
+    // FAIL SAFE: stale or no command -> zero (keeps diff_cont fed at 20 Hz)
+    publish(geometry_msgs::msg::Twist(), now);
+  } else if ((now - last_pub_time_) > rclcpp::Duration::from_seconds(0.1)) {
+    // Source publishes slower than 10 Hz: repeat the last fresh command so
+    // diff_cont's own cmd_vel_timeout doesn't stop the robot.
+    publish(last_cmd_, now);
   }
-
-  safe_cmd_pub_->publish(output);
 }
 
 

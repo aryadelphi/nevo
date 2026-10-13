@@ -1,8 +1,25 @@
 scan_to_scan_filter_chain:
   ros__parameters:
+    # Remove hits on nevo's own body (tray posts, frame) with a box around the
+    # footprint (0.70 x 0.60 m) instead of a 0.6 m range cut: the range cut made
+    # the lidar blind 25-30 cm around the body.
+    # Check after changing: with nevo standing still, /scan_filtered must show no
+    # points on the robot itself. If a post still shows, enlarge the box slightly.
     filter1:
-      name: self_robot_filter
+      name: self_body_box
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: base_link
+        min_x: -0.37
+        max_x: 0.37
+        min_y: -0.32
+        max_y: 0.32
+        min_z: -0.20
+        max_z: 2.00
+        invert: false          # false = drop points inside the box
+    filter2:
+      name: range_limits
       type: laser_filters/LaserScanRangeFilter
       params:
-        lower_threshold: 0.6             # if not specified defaults to 0.0
-        upper_threshold: 12.0              # if not specified defaults to 100000.0
+        lower_threshold: 0.15  # RPLIDAR A1 minimum usable range
+        upper_threshold: 12.0

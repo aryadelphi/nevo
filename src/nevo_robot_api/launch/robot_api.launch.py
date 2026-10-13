@@ -32,7 +32,7 @@ def generate_launch_description():
         executable='robot_api_node',
         name='nevo_robot_api',
         output='screen',
-        remappings=[('/diff_cont', '/cmd_vel')],
+        remappings=[('/diff_cont', '/cmd_vel_remote')],
         parameters=[{
             'robot_id': LaunchConfiguration('robot_id'),
             'ui_id': LaunchConfiguration('ui_id'),

@@ -9,7 +9,7 @@
           <param name="loop_rate">30</param>
           <param name="device">/dev/ttyMOTOR</param>
           <param name="baud_rate">57600</param>
-          <param name="timeout">1000</param>
+          <param name="timeout">30</param>
           <param name="enc_counts_per_rev">2000</param>
       </hardware>
 

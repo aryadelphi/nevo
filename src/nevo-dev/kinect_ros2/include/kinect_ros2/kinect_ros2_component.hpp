@@ -13,6 +13,7 @@ extern "C"
 
 #include <thread>
 #include <atomic>
+#include <mutex>
 
 namespace kinect_ros2
 {
@@ -39,6 +40,8 @@ private:
   static void rgb_cb(freenect_device * dev, void * rgb_ptr, uint32_t timestamp);
 
   void publish_callback();
+  bool enable_rgb_ = false;   // RGB stream is not used by the nav stack
+  int downscale_ = 8;         // depth decimation for the point cloud (8 -> 80x60)
 };
 
 }

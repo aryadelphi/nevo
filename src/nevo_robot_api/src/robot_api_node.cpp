@@ -28,6 +28,7 @@ using json = nlohmann::json;
 #include <fstream>
 #include <array>
 #include <unordered_map>
+#include <regex>
 
 using namespace std::chrono_literals;
 
@@ -121,6 +122,22 @@ RobotApiNode::RobotApiNode(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(this->get_logger(),
     "Upload server URL: %s", upload_server_url_.c_str());
+
+  // Which map does map_server run? launch_robot reads the same file.
+  enforce_map_id_ = this->declare_parameter<bool>("enforce_map_id", true);
+  {
+    std::string sel_file = home_dir ? std::string(home_dir) + "/nevo_selected_map.txt" : "";
+    std::ifstream f(sel_file);
+    std::string sel_path;
+    std::smatch m;
+    if (f && std::getline(f, sel_path) &&
+        std::regex_search(sel_path, m, std::regex("map_([0-9]+)")))
+    {
+      active_map_id_ = std::stoi(m[1].str());
+    }
+    RCLCPP_INFO(this->get_logger(), "Active map_id: %d (enforce_map_id=%s)",
+      active_map_id_, enforce_map_id_ ? "true" : "false");
+  }
 
   // =====================
   // Publisher
@@ -918,6 +935,25 @@ void RobotApiNode::handleOp(const std::string & robot_id,
   try {
     json j = json::parse(raw_json);
     json data = j.at("data");
+
+    // Goals are coordinates in one specific map: refuse them if the dashboard
+    // means a different map than the one map_server is running.
+    if (data.contains("map_id") && active_map_id_ >= 0) {
+      int op_map_id = data.at("map_id").is_string()
+        ? std::stoi(data.at("map_id").get<std::string>())
+        : data.at("map_id").get<int>();
+      if (op_map_id != active_map_id_) {
+        std::string msg = "OP map_id " + std::to_string(op_map_id) +
+          " does not match the loaded map " + std::to_string(active_map_id_);
+        if (enforce_map_id_) {
+          RCLCPP_ERROR(this->get_logger(), "OP rejected: %s", msg.c_str());
+          sendError("OP rejected: " + msg, "MAP_MISMATCH", "HIGH");
+          return;
+        }
+        RCLCPP_WARN(this->get_logger(), "%s (enforce_map_id=false, continuing)", msg.c_str());
+      }
+    }
+
     op_sequence_counter_ = 0;
 
     if (data.contains("home_base")) {
@@ -1820,8 +1856,22 @@ void RobotApiNode::processNextGoal()
           if (!goal_queue_.empty()) goal_queue_.pop();
           goal_in_progress_ = false;
         }
-        
+
         RCLCPP_INFO(this->get_logger(), "Sequence %d Rejected", seq);
+        // Tell the UI and leave MOVING; otherwise every later OP is refused
+        // with "robot not IDLE".
+        sendError("Goal seq=" + std::to_string(seq) +
+                  " rejected by Nav2 (navigation not active?)", "NAV_REJECTED", "HIGH");
+        bool more;
+        {
+          std::lock_guard<std::mutex> lock(queue_mutex_);
+          more = !goal_queue_.empty();
+        }
+        if (more) {
+          processNextGoal();
+        } else {
+          sm_.setMode("IDLE");
+        }
         return;
       }
 

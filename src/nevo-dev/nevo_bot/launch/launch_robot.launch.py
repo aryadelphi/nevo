@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import (
     IncludeLaunchDescription, TimerAction,
     RegisterEventHandler, DeclareLaunchArgument,
-    SetEnvironmentVariable,
+    SetEnvironmentVariable, GroupAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -16,7 +16,8 @@ from launch_ros.actions import Node
 
 def get_selected_map():
     config_file = os.path.expanduser("~/nevo_selected_map.txt")
-    default_map = "/home/nevo/nevo_ws/src/nevo-dev/nevo_bot/maps/abie_lab_save.yaml"
+    default_map = os.path.join(
+        get_package_share_directory('nevo_bot'), 'maps', 'abie_lab_save.yaml')
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             map_path = f.read().strip()
@@ -55,6 +56,15 @@ def generate_launch_description():
         description='Full path to map yaml file'
     )
     map_file = LaunchConfiguration('map')
+    declare_docking_arg = DeclareLaunchArgument(
+        'docking', default_value='false',
+        description='Start the rear camera + AprilTag + docking stack (needs the C310 on /dev/video0)')
+    docking_enabled = LaunchConfiguration('docking')
+    declare_nav_params_arg = DeclareLaunchArgument(
+        'nav_params',
+        default_value=os.path.join(get_package_share_directory(package_name), 'config', 'controller_mppi_params.yaml'),
+        description='Nav2 + AMCL params file (thesis runs: config/hw_nav_mppi.yaml or hw_nav_dwb.yaml)')
+    nav_params = LaunchConfiguration('nav_params')
 
     pkg_share           = get_package_share_directory(package_name)
     xacro_file          = os.path.join(pkg_share, 'description', 'robot.urdf.xacro')
@@ -92,7 +102,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_diagnostic_node'), 'launch', 'diagnostic.launch.py')
         ),
-        launch_arguments={'mode': diag_mode, 'robot_id': 'TFRB2', 'grace_period_sec': '30', 'global_timeout_sec': '300'}.items()
+        launch_arguments={'mode': diag_mode, 'robot_id': robot_id, 'grace_period_sec': '30', 'global_timeout_sec': '300'}.items()
     )
 
     # =========================================================================
@@ -131,11 +141,14 @@ def generate_launch_description():
     # =========================================================================
     # LAYER 2 — OnProcessStart(controller_manager)
     # =========================================================================
-    joint_state_broadcaster_spawner = Node(
-        package='controller_manager', executable='spawner', arguments=['joint_state_broadcaster']
-    )
-    diff_drive_spawner = Node(
-        package='controller_manager', executable='spawner', arguments=['diff_cont']
+    # One spawner, in order: joint_state_broadcaster first (state interfaces),
+    # then diff_cont (command interfaces). Long timeouts because the Pi is busy
+    # during bringup; two separate spawners on timers raced and one died.
+    controllers_spawner = Node(
+        package='controller_manager', executable='spawner',
+        arguments=['joint_state_broadcaster', 'diff_cont',
+                   '--controller-manager-timeout', '60',
+                   '--service-call-timeout', '30']
     )
     ekf_node = Node(
         package='robot_localization', executable='ekf_node',
@@ -148,27 +161,25 @@ def generate_launch_description():
         remappings=[('cmd_vel_out', '/diff_cont/cmd_vel_unstamped_raw')]
     )
 
-    # joint_state_broadcaster must activate FIRST (claims state interfaces),
-    # then diff_cont after a delay (claims command interfaces).
     layer2_on_controller_start = RegisterEventHandler(
         event_handler=OnProcessStart(
             target_action=controller_manager,
-            on_start=[joint_state_broadcaster_spawner, ekf_node, twist_mux]
+            on_start=[controllers_spawner, ekf_node, twist_mux]
         )
     )
-    delayed_diff_drive = TimerAction(period=10.0, actions=[diff_drive_spawner])
 
     # =========================================================================
     # LAYER 3 — TimerAction from OnProcessStart(controller_manager)
     # =========================================================================
     localization_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_share, 'launch', 'localization_launch.py')),
-        launch_arguments={'map': map_file}.items(),
+        launch_arguments={'map': map_file, 'params_file': nav_params}.items(),
         condition=IfCondition(is_nav)
     )
     navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_share, 'launch', 'navigation_launch.py')),
-        launch_arguments={'use_sim_time': 'false', 'map_subscribe_transient_local': 'true'}.items(),
+        launch_arguments={'use_sim_time': 'false', 'map_subscribe_transient_local': 'true',
+                          'params_file': nav_params}.items(),
         condition=IfCondition(is_nav)
     )
     safety_fail_node = Node(
@@ -197,12 +208,6 @@ def generate_launch_description():
     # =========================================================================
     # LAYER 4 — TimerAction from OnProcessStart(controller_manager)
     # =========================================================================
-    initial_pose_node = Node(
-        package='nevo_bot', executable='publish_initial_pose',
-        name='initial_pose_pub', output='log',
-        arguments=['0.0', '0.0', '0.0'],
-        condition=IfCondition(is_nav)
-    )
     robot_api = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_robot_api'), 'launch', 'robot_api.launch.py')
@@ -291,6 +296,18 @@ def generate_launch_description():
         name='docking_server',
         output='screen',
         parameters=[os.path.join(pkg_share, 'config', 'docking.yaml')],
+        # Same path as Nav2: velocity_smoother -> twist_mux "navigation".
+        remappings=[('cmd_vel', 'cmd_vel_nav')],
+        condition=IfCondition(is_nav)
+    )
+    # navigation_launch's lifecycle manager only manages the core Nav2 servers,
+    # so docking_server needs its own (it stayed unconfigured before).
+    docking_lifecycle_manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_docking',
+        output='log',
+        parameters=[{'autostart': True, 'node_names': ['docking_server'], 'bond_timeout': 10.0}],
         condition=IfCondition(is_nav)
     )
     kinect_activate = Node(
@@ -311,9 +328,15 @@ def generate_launch_description():
             on_start=[
                 TimerAction(period=5.0, actions=[
                     #ina226_bridge,  # DISABLED — Arduino unplugged for rewiring
-                    camera_node, rectify_node,
-                    apriltag_node, tag_pose_bridge, docking_server,
                     kinect_activate, kinect_tf,
+                ]),
+                # Docking stack (rear camera, AprilTag, docking_server) only on request.
+                TimerAction(period=5.0, actions=[
+                    GroupAction(
+                        condition=IfCondition(docking_enabled),
+                        actions=[camera_node, rectify_node, apriltag_node,
+                                 tag_pose_bridge, docking_server, docking_lifecycle_manager],
+                    ),
                 ]),
             ]
         )
@@ -334,6 +357,7 @@ def generate_launch_description():
     return LaunchDescription([
         fix_rmw_env, fix_fastdds_env,
         declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_mode_arg,
+        declare_docking_arg, declare_nav_params_arg,
 
         # Layer 0
         rsp, rplidar_activate, ws_bridge, diagnostic_node,
@@ -344,7 +368,6 @@ def generate_launch_description():
 
         # Layer 2
         layer2_on_controller_start,
-        delayed_diff_drive,
 
         # Layer 2b — INA226 + Docking + Kinect
         layer2b_on_controller_start,

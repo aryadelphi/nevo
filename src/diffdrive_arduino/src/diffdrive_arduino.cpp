@@ -3,6 +3,8 @@
 
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 
+#include <cmath>
+
 
 
 DiffDriveArduino::DiffDriveArduino()
@@ -19,7 +21,6 @@ hardware_interface::CallbackReturn DiffDriveArduino::on_init(const hardware_inte
 
   RCLCPP_INFO(logger_, "Configuring...");
 
-  time_ = std::chrono::system_clock::now();
 
   cfg_.left_wheel_name = info_.hardware_parameters["left_wheel_name"];
   cfg_.right_wheel_name = info_.hardware_parameters["right_wheel_name"];
@@ -84,28 +85,46 @@ hardware_interface::CallbackReturn DiffDriveArduino::on_deactivate(const rclcpp_
 {
   RCLCPP_INFO(logger_, "Stopping Controller...");
 
+  // Stop the motors now instead of waiting for the firmware auto-stop.
+  if (arduino_.connected())
+  {
+    arduino_.setMotorValues(0, 0);
+  }
+
   return CallbackReturn::SUCCESS;
 }
 
 hardware_interface::return_type DiffDriveArduino::read(
-  const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+  const rclcpp::Time & /*time*/, const rclcpp::Duration & period)
 {
-
-  // TODO fix chrono duration
-
-  // Calculate time delta
-  auto new_time = std::chrono::system_clock::now();
-  std::chrono::duration<double> diff = new_time - time_;
-  double deltaSeconds = diff.count();
-  time_ = new_time;
-
+  // Use the controller_manager period (monotonic) rather than wall-clock time,
+  // which jumps when the system clock is set or synced.
+  const double deltaSeconds = period.seconds();
 
   if (!arduino_.connected())
   {
     return return_type::ERROR;
   }
 
-  arduino_.readEncoderValues(l_wheel_.enc, r_wheel_.enc);
+  int l_enc = l_wheel_.enc, r_enc = r_wheel_.enc;
+  if (!arduino_.readEncoderValues(l_enc, r_enc))
+  {
+    // Keep the last position and velocity for this cycle instead of
+    // publishing a bogus jump; report persistent failures.
+    if (++enc_read_failures_ % 20 == 0)
+    {
+      RCLCPP_WARN(logger_, "Encoder read failed %d times in a row", enc_read_failures_);
+    }
+    return return_type::OK;
+  }
+  enc_read_failures_ = 0;
+  l_wheel_.enc = l_enc;
+  r_wheel_.enc = r_enc;
+
+  if (deltaSeconds <= 0.0)
+  {
+    return return_type::OK;
+  }
 
   double pos_prev = l_wheel_.pos;
   l_wheel_.pos = l_wheel_.calcEncAngle();
@@ -115,11 +134,7 @@ hardware_interface::return_type DiffDriveArduino::read(
   r_wheel_.pos = r_wheel_.calcEncAngle();
   r_wheel_.vel = (r_wheel_.pos - pos_prev) / deltaSeconds;
 
-
-
   return return_type::OK;
-
-  
 }
 
 hardware_interface::return_type DiffDriveArduino::write(
@@ -131,7 +146,11 @@ hardware_interface::return_type DiffDriveArduino::write(
     return return_type::ERROR;
   }
 
-  arduino_.setMotorValues(l_wheel_.cmd / l_wheel_.rads_per_count / cfg_.loop_rate, r_wheel_.cmd / r_wheel_.rads_per_count / cfg_.loop_rate);
+  // Counts per firmware PID frame (cfg_.loop_rate must match the firmware PID_RATE).
+  // Round instead of truncating toward zero.
+  arduino_.setMotorValues(
+    static_cast<int>(std::lround(l_wheel_.cmd / l_wheel_.rads_per_count / cfg_.loop_rate)),
+    static_cast<int>(std::lround(r_wheel_.cmd / r_wheel_.rads_per_count / cfg_.loop_rate)));
 
 
 

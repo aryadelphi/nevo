@@ -1,5 +1,6 @@
 #include "kinect_ros2/kinect_ros2_component.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include <algorithm>
 
 using namespace std::chrono_literals;
 
@@ -11,9 +12,13 @@ static cv::Mat _rgb_image(cv::Mat::zeros(cv::Size(640, 480), CV_8UC3));
 static uint16_t * _freenect_depth_pointer = nullptr;
 static uint8_t * _freenect_rgb_pointer = nullptr;
 
-static bool _depth_flag;
-static bool _rgb_flag;
+// Written by the libfreenect thread, read by the publish timer.
+static std::mutex _frame_mutex;
+static bool _depth_flag = false;
+static bool _rgb_flag = false;
 static int _rgb_frame_count = 0;
+static rclcpp::Clock _capture_clock(RCL_SYSTEM_TIME);
+static rclcpp::Time _depth_stamp;
 
 KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
 : Node("kinect_ros2", options), running_(false)
@@ -34,10 +39,12 @@ KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
   depth_info_ = depth_info_manager_->getCameraInfo();
   depth_info_.header.frame_id = "kinect_depth";
 
-  constexpr int DOWNSCALE = 8;
+  enable_rgb_ = declare_parameter<bool>("enable_rgb", false);
+  downscale_ = std::max(1, static_cast<int>(declare_parameter<int>("depth_downscale", 8)));
+  const double DOWNSCALE = downscale_;
   depth_small_info_ = depth_info_;
-  depth_small_info_.width = depth_info_.width / DOWNSCALE;
-  depth_small_info_.height = depth_info_.height / DOWNSCALE;
+  depth_small_info_.width = static_cast<uint32_t>(depth_info_.width / DOWNSCALE);
+  depth_small_info_.height = static_cast<uint32_t>(depth_info_.height / DOWNSCALE);
   depth_small_info_.k[0] /= DOWNSCALE;
   depth_small_info_.k[2] /= DOWNSCALE;
   depth_small_info_.k[4] /= DOWNSCALE;
@@ -98,7 +105,7 @@ KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
     rclcpp::shutdown();
   }
 
-  ret = freenect_start_video(fn_dev_);
+  ret = enable_rgb_ ? freenect_start_video(fn_dev_) : 0;
   if (ret < 0) {
     RCLCPP_WARN(get_logger(), "RGB unavailable, depth only");
   }
@@ -121,7 +128,9 @@ KinectRosComponent::~KinectRosComponent()
     freenect_thread_.join();
   }
   freenect_stop_depth(fn_dev_);
-  freenect_stop_video(fn_dev_);
+  if (enable_rgb_) {
+    freenect_stop_video(fn_dev_);
+  }
   freenect_close_device(fn_dev_);
   freenect_shutdown(fn_ctx_);
 }
@@ -135,12 +144,14 @@ void KinectRosComponent::depth_cb(freenect_device * dev, void * depth_ptr, uint3
 {
   (void)dev;
   (void)timestamp;
+  std::lock_guard<std::mutex> lock(_frame_mutex);
   if (_depth_flag) {
     return;
   }
 
   _freenect_depth_pointer = (uint16_t *)depth_ptr;
   memcpy(_depth_image.data, depth_ptr, 640 * 480 * 2);
+  _depth_stamp = _capture_clock.now();  // capture time, not publish time
   _depth_flag = true;
 }
 
@@ -148,6 +159,7 @@ void KinectRosComponent::rgb_cb(freenect_device * dev, void * rgb_ptr, uint32_t 
 {
   (void)dev;
   (void)timestamp;
+  std::lock_guard<std::mutex> lock(_frame_mutex);
   if (_rgb_flag) {
     return;
   }
@@ -159,37 +171,53 @@ void KinectRosComponent::rgb_cb(freenect_device * dev, void * rgb_ptr, uint32_t 
 
 void KinectRosComponent::publish_callback()
 {
-  auto header = std_msgs::msg::Header();
-  header.frame_id = "kinect_depth";
-
-  auto stamp = now();
-  header.stamp = stamp;
-  depth_info_.header.stamp = stamp;
-
-  if (_depth_flag) {
-    auto msg = cv_bridge::CvImage(header, "16UC1", _depth_image).toImageMsg();
-    depth_pub_.publish(*msg, depth_info_);
-
-    {
-      cv::Mat small;
-      cv::resize(_depth_image, small, cv::Size(), 0.125, 0.125, cv::INTER_NEAREST);
-      depth_small_info_.header.stamp = stamp;
-      auto small_msg = cv_bridge::CvImage(header, "16UC1", small).toImageMsg();
-      depth_small_pub_.publish(*small_msg, depth_small_info_);
+  cv::Mat depth, rgb;
+  rclcpp::Time stamp;
+  {
+    std::lock_guard<std::mutex> lock(_frame_mutex);
+    if (_depth_flag) {
+      depth = _depth_image.clone();
+      stamp = _depth_stamp;
+      _depth_flag = false;
     }
-
-    _depth_flag = false;
+    if (_rgb_flag) {
+      if (++_rgb_frame_count % 2 == 0) {
+        rgb = _rgb_image.clone();
+      }
+      _rgb_flag = false;
+    }
   }
 
-  if (_rgb_flag) {
-    if (++_rgb_frame_count % 2 == 0) {
-      auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", _rgb_image).toImageMsg();
-      rgb_pub_.publish(*msg, rgb_info_);
+  if (!depth.empty()) {
+    auto header = std_msgs::msg::Header();
+    header.frame_id = "kinect_depth";
+    header.stamp = stamp;
+
+    // Full-resolution depth only when someone listens (e.g. rviz).
+    if (depth_pub_.getNumSubscribers() > 0) {
+      depth_info_.header.stamp = stamp;
+      auto msg = cv_bridge::CvImage(header, "16UC1", depth).toImageMsg();
+      depth_pub_.publish(*msg, depth_info_);
     }
-    _rgb_flag = false;
+
+    // Decimated depth feeds depth_image_proc -> /points (STVL).
+    cv::Mat small;
+    cv::resize(depth, small, cv::Size(), 1.0 / downscale_, 1.0 / downscale_, cv::INTER_NEAREST);
+    depth_small_info_.header.stamp = stamp;
+    auto small_msg = cv_bridge::CvImage(header, "16UC1", small).toImageMsg();
+    depth_small_pub_.publish(*small_msg, depth_small_info_);
+  }
+
+  if (!rgb.empty() && rgb_pub_.getNumSubscribers() > 0) {
+    auto rgb_header = std_msgs::msg::Header();
+    rgb_header.frame_id = "kinect_rgb";
+    rgb_header.stamp = now();
+    rgb_info_.header.stamp = rgb_header.stamp;
+    auto msg = cv_bridge::CvImage(rgb_header, "rgb8", rgb).toImageMsg();
+    rgb_pub_.publish(*msg, rgb_info_);
   }
 }
-}
+}  // namespace kinect_ros2
 
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(kinect_ros2::KinectRosComponent)

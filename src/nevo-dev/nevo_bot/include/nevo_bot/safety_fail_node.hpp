@@ -13,6 +13,7 @@ public:
 private:
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
   void watchdogLoop();
+  void publish(const geometry_msgs::msg::Twist & twist, const rclcpp::Time & stamp);
 
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   // Jazzy diff_drive_controller only accepts TwistStamped on ~/cmd_vel
@@ -21,6 +22,7 @@ private:
 
   geometry_msgs::msg::Twist last_cmd_;
   rclcpp::Time last_cmd_time_;
+  rclcpp::Time last_pub_time_;
   rclcpp::Duration cmd_timeout_;
   bool received_cmd_;
 };

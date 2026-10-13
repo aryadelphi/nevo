@@ -146,6 +146,10 @@ private:
   void mappingToNav(const std::string & robot_id, const std::string & raw_json);
   void flagCoordinate(const std::string & robot_id, const std::string & raw_json);
   std::unordered_map<int, std::string> map_registry_;
+  // Map currently loaded by map_server (from ~/nevo_selected_map.txt, '.../map_<id>/...'); -1 = unknown.
+  int active_map_id_ = -1;
+  // Reject OP goals whose map_id differs from active_map_id_.
+  bool enforce_map_id_ = true;
   std::mutex map_registry_mutex_;
   void handleMapData(const std::string & raw_json);
   void handleMapSelected(const std::string & raw_json);

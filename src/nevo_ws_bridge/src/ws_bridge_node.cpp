@@ -1,6 +1,7 @@
 #include "nevo_ws_bridge/ws_bridge_node.hpp"
 
 #include <cstdlib>
+#include <algorithm>
 
 namespace nevo_ws_bridge
 {
@@ -34,6 +35,9 @@ WsBridgeNode::WsBridgeNode(
   network_mode_ = this->declare_parameter<std::string>(
     "network_mode", "auto"); // offline | online | auto
 
+  cloud_max_msgs_per_sec_ = std::max(1, static_cast<int>(
+    this->declare_parameter<int>("cloud_max_msgs_per_sec", 8)));
+
   RCLCPP_INFO(get_logger(), "=== nevo_ws_bridge ===");
   RCLCPP_INFO(get_logger(), "robot_id      : %s", robot_id_.c_str());
   RCLCPP_INFO(get_logger(), "network_mode  : %s", network_mode_.c_str());
@@ -49,6 +53,10 @@ WsBridgeNode::WsBridgeNode(
 
   network_status_pub_ = this->create_publisher<std_msgs::msg::String>(
     "nevo/network_status", rclcpp::QoS(10));
+
+  cloud_drain_timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(20),
+    std::bind(&WsBridgeNode::drainCloudQueue, this));
 
   ws_out_sub_ = this->create_subscription<std_msgs::msg::String>(
     "nevo/ws_out",
@@ -149,11 +157,38 @@ WsBridgeNode::WsBridgeNode(
 void WsBridgeNode::wsOutCallback(
   const std_msgs::msg::String::SharedPtr msg)
 {
-  if (cloud_enabled_ && ws_client_)
-    ws_client_->send(msg->data);
+  if (cloud_enabled_ && ws_client_) {
+    if (cloud_queue_.size() >= cloud_queue_limit_) {
+      cloud_queue_.pop_front();
+      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+        "Cloud send queue full (%zu), dropping oldest message", cloud_queue_limit_);
+    }
+    cloud_queue_.push_back(msg->data);
+    drainCloudQueue();
+  }
 
   if (enable_local_ws_ && ws_server_)
     ws_server_->sendToAll(msg->data);
+}
+
+void WsBridgeNode::drainCloudQueue()
+{
+  // Callbacks share the node's default (mutually exclusive) group, so this and
+  // wsOutCallback never run concurrently.
+  if (!cloud_enabled_ || !ws_client_) {
+    return;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  while (!cloud_sent_times_.empty() &&
+         now - cloud_sent_times_.front() >= std::chrono::seconds(1)) {
+    cloud_sent_times_.pop_front();
+  }
+  while (!cloud_queue_.empty() &&
+         static_cast<int>(cloud_sent_times_.size()) < cloud_max_msgs_per_sec_) {
+    ws_client_->send(cloud_queue_.front());
+    cloud_queue_.pop_front();
+    cloud_sent_times_.push_back(now);
+  }
 }
 
 //

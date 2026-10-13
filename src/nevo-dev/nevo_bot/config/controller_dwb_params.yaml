@@ -38,6 +38,9 @@ amcl:
     z_rand: 0.5
     z_short: 0.05
     scan_topic: /scan_filtered
+    # map->odom right after activation (avoids the Nav2 bringup race).
+    set_initial_pose: true
+    initial_pose: {x: 0.0, y: 0.0, z: 0.0, yaw: 0.0}
 
 bt_navigator:
   ros__parameters:
@@ -414,7 +417,7 @@ behavior_server:
     local_frame: odom
     global_frame: map
     robot_base_frame: base_link
-    transform_tolerance: 0.1
+    transform_tolerance: 0.5
     simulate_ahead_time: 2.0
     max_rotational_vel: 1.0
     min_rotational_vel: 0.4

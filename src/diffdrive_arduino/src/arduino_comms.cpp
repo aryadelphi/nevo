@@ -3,6 +3,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sstream>
 #include <cstdlib>
+#include <cerrno>
+#include <chrono>
+#include <thread>
 
 
 void ArduinoComms::setup(const std::string &serial_device, int32_t baud_rate, int32_t timeout_ms)
@@ -12,6 +15,9 @@ void ArduinoComms::setup(const std::string &serial_device, int32_t baud_rate, in
     serial::Timeout tt = serial::Timeout::simpleTimeout(timeout_ms);
     serial_conn_.setTimeout(tt); // This should be inline except setTimeout takes a reference and so needs a variable
     serial_conn_.open();
+    // Opening the port resets a Nano/Uno (DTR); give the bootloader time
+    // before the first command, now that the read timeout is short.
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     // serial_conn_.(serial_device, baud_rate, serial::Timeout::simpleTimeout(timeout_ms));
 
 }
@@ -22,17 +28,26 @@ void ArduinoComms::sendEmptyMsg()
     std::string response = sendMsg("\r");
 }
 
-void ArduinoComms::readEncoderValues(int &val_1, int &val_2)
+bool ArduinoComms::readEncoderValues(int &val_1, int &val_2)
 {
     std::string response = sendMsg("e\r");
 
-    std::string delimiter = " ";
-    size_t del_pos = response.find(delimiter);
-    std::string token_1 = response.substr(0, del_pos);
-    std::string token_2 = response.substr(del_pos + delimiter.length());
+    // Expect "<int> <int>\r\n". A timeout returns an empty or partial line;
+    // parsing that with atoi would yield 0 and make the odometry jump.
+    const char *p = response.c_str();
+    char *end = nullptr;
+    errno = 0;
+    long v1 = std::strtol(p, &end, 10);
+    if (end == p || errno != 0) return false;
+    p = end;
+    long v2 = std::strtol(p, &end, 10);
+    if (end == p || errno != 0) return false;
+    while (*end == ' ' || *end == '\r' || *end == '\n') ++end;
+    if (*end != '\0' || response.find('\n') == std::string::npos) return false;
 
-    val_1 = std::atoi(token_1.c_str());
-    val_2 = std::atoi(token_2.c_str());
+    val_1 = static_cast<int>(v1);
+    val_2 = static_cast<int>(v2);
+    return true;
 }
 
 void ArduinoComms::setMotorValues(int val_1, int val_2)
@@ -51,6 +66,7 @@ void ArduinoComms::setPidValues(float k_p, float k_d, float k_i, float k_o)
 
 std::string ArduinoComms::sendMsg(const std::string &msg_to_send, bool print_output)
 {
+    serial_conn_.flushInput();
     serial_conn_.write(msg_to_send);
     std::string response = serial_conn_.readline();
 

@@ -41,17 +41,17 @@ diff_cont:
 
 # --- ADD THESE LIMITS BELOW ---
     # Linear limits (Moving forward/backward)
-    linear.x.has_velocity_limits: false
+    linear.x.has_velocity_limits: true
     linear.x.has_acceleration_limits: true
     linear.x.max_velocity: 0.5          # m/s
     linear.x.min_velocity: -0.5         # m/s
-    linear.x.max_acceleration: 0.4      # m/s^2
-    linear.x.min_acceleration: -0.4     # m/s^2
+    linear.x.max_acceleration: 0.6      # backstop above Nav2's limits
+    linear.x.min_acceleration: -0.6     # m/s^2
 
     # Angular limits (Turning)
     angular.z.has_velocity_limits: true
     angular.z.has_acceleration_limits: true
-    angular.z.max_velocity: 1.5         # rad/s
-    angular.z.min_velocity: -1.5        # rad/s
-    angular.z.max_acceleration: 1.5     # rad/s^2
-    angular.z.min_acceleration: -1.5    # rad/s^2
+    angular.z.max_velocity: 1.0         # rad/s
+    angular.z.min_velocity: -1.0        # rad/s
+    angular.z.max_acceleration: 1.2     # rad/s^2
+    angular.z.min_acceleration: -1.2    # rad/s^2
