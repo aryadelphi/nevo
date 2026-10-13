@@ -124,7 +124,7 @@ RobotApiNode::RobotApiNode(const rclcpp::NodeOptions & options)
     "Upload server URL: %s", upload_server_url_.c_str());
 
   // Which map does map_server run? launch_robot reads the same file.
-  enforce_map_id_ = this->declare_parameter<bool>("enforce_map_id", true);
+  enforce_map_id_ = this->declare_parameter<bool>("enforce_map_id", false);
   {
     std::string sel_file = home_dir ? std::string(home_dir) + "/nevo_selected_map.txt" : "";
     std::ifstream f(sel_file);

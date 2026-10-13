@@ -65,6 +65,9 @@ def generate_launch_description():
         default_value=os.path.join(get_package_share_directory(package_name), 'config', 'controller_mppi_params.yaml'),
         description='Nav2 + AMCL params file (thesis runs: config/hw_nav_mppi.yaml or hw_nav_dwb.yaml)')
     nav_params = LaunchConfiguration('nav_params')
+    declare_enforce_map_id_arg = DeclareLaunchArgument(
+        'enforce_map_id', default_value='false',
+        description='robot_api: reject dashboard goals whose map_id differs from the loaded map')
 
     pkg_share           = get_package_share_directory(package_name)
     xacro_file          = os.path.join(pkg_share, 'description', 'robot.urdf.xacro')
@@ -212,7 +215,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_robot_api'), 'launch', 'robot_api.launch.py')
         ),
-        launch_arguments={'robot_id': robot_id, 'ui_id': ui_id, 'mode': stack_mode}.items()
+        launch_arguments={'robot_id': robot_id, 'ui_id': ui_id, 'mode': stack_mode,
+                          'enforce_map_id': LaunchConfiguration('enforce_map_id')}.items()
     )
     sensor_manager = Node(
         package='nevo_robot_api', executable='sensor_manager_node', name='sensor_manager_node'
@@ -357,7 +361,7 @@ def generate_launch_description():
     return LaunchDescription([
         fix_rmw_env, fix_fastdds_env,
         declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_mode_arg,
-        declare_docking_arg, declare_nav_params_arg,
+        declare_docking_arg, declare_nav_params_arg, declare_enforce_map_id_arg,
 
         # Layer 0
         rsp, rplidar_activate, ws_bridge, diagnostic_node,
