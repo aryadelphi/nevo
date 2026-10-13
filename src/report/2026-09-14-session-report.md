@@ -135,3 +135,15 @@ Without a magnetometer, yaw will always drift over long periods. The gyro bias c
 
 ### Position Sensor Uses Raw Odom
 `position_sensor_node.cpp` subscribes to `/diff_cont/odom` instead of `/odometry/filtered`. Cloud position reports use unfiltered wheel odometry. Consider subscribing to `/odometry/filtered` for better accuracy.
+
+### USB Power Supply (Hardware)
+Pi5 was underpowered, causing:
+- Repeated undervoltage events (`hwmon3: Undervoltage detected!`)
+- USB over-current triggers resetting the entire USB bus
+- All serial devices (lidar, motor, IMU) disconnecting simultaneously
+- IMU publisher flooding logs with 5330 reconnect errors
+- EKF timestamp jump of 1620982s from missing sensor data
+
+**Root cause**: PSU could not deliver enough current for Pi5 + multiple USB peripherals.
+**Fix**: Swapped to adequate power supply. `throttled=0x0` confirmed clean.
+**Note**: `/dev/ttyIMU` is not in `nevo_launch_robot.sh`'s wait list — add it to prevent premature IMU publisher start on boot.

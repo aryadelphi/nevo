@@ -1,6 +1,6 @@
 controller_manager:
   ros__parameters:
-    update_rate: 50
+    update_rate: 20
     use_sim_time: false
 
     diff_cont:
@@ -11,7 +11,7 @@ controller_manager:
 
 diff_cont:
   ros__parameters:
-    publish_rate: 50.0
+    publish_rate: 20.0
     base_frame_id: base_link
 
     left_wheel_names: ["left_wheel_joint"]

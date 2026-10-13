@@ -13,7 +13,7 @@ source /opt/ros/jazzy/setup.bash
 source /home/nevo/nevo_ws/install/setup.bash
 
 # Wait up to 30s for USB hardware to enumerate after boot.
-for dev in /dev/ttyLIDAR /dev/ttyMOTOR /dev/ttyBATERAI /dev/ttyUSB0 /dev/video0; do
+for dev in /dev/ttyLIDAR /dev/ttyMOTOR /dev/ttyBATERAI /dev/ttyIMU /dev/ttyUSB0 /dev/video0; do
     for i in $(seq 1 30); do
         [ -e "$dev" ] && break
         sleep 1
