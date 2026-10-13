@@ -2569,6 +2569,8 @@ void RobotApiNode::handleMapSelected(const std::string & raw_json)
                 "MAP_SELECTED: map loaded successfully: %s",
                 yaml_path.c_str());
             writeSelectedMapConfig(yaml_path);
+            active_map_id_ = map_id;  // OP map_id check follows the newly loaded map
+            RCLCPP_INFO(this->get_logger(), "Active map_id: %d", active_map_id_);
             sendAck(robot_id_for_ack, "MAP_SELECTED", "SUCCESS");
         } else {
             RCLCPP_ERROR(this->get_logger(),
