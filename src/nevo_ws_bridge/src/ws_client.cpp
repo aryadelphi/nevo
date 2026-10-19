@@ -4,6 +4,7 @@
 #include <thread>
 #include <chrono>
 #include <sstream>
+#include <cstdio>
 
 using namespace std::chrono_literals;
 
@@ -152,8 +153,39 @@ void WsClient::notifyStatus(ConnectionState s)
 
 void WsClient::sendSi()
 {
+  std::string token = "";
+
+  // 1. Fetch token via curl POST request
+  FILE* pipe = popen("curl -s -X POST https://tifa-be.forgixrobotic.com/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"robot\",\"password\":\"robot123\"}'", "r");
+  if (pipe) {
+    char buffer[128];
+    std::string response = "";
+    while (!feof(pipe)) {
+      if (fgets(buffer, 128, pipe) != nullptr)
+        response += buffer;
+    }
+    pclose(pipe);
+
+    // 2. Extract the token value from the JSON response
+    size_t pos = response.find("\"token\":\"");
+    if (pos != std::string::npos) {
+      pos += 9;
+      size_t end_pos = response.find("\"", pos);
+      if (end_pos != std::string::npos) {
+        token = response.substr(pos, end_pos - pos);
+        std::cout << "[WsClient] Successfully fetched auth token.\n";
+      }
+    }
+  }
+
+  if (token.empty()) {
+    std::cerr << "[WsClient] Failed to fetch auth token!\n";
+  }
+
+  // 3. Construct SI payload with authentication token
   std::string si = std::string("{\"code\":\"SI\",\"data\":{\"type\":\"ROBOT\",\"robot_id\":\"")
-    + robot_id_ + "\"}}";
+    + robot_id_ + "\",\"token\":\"" + token + "\"}}";
+
   send(si);
   std::cout << "[WsClient] Sent SI: " << si << std::endl;
 }
@@ -220,7 +252,7 @@ void WsClient::forceReconnect()
   ws_.start();
 }
 
-// 🔹 Fallback / reconnect logic utama
+// Fallback / reconnect logic utama
 void WsClient::scheduleReconnect(bool from_error)
 {
   if (reconnecting_.exchange(true)) {
@@ -234,8 +266,8 @@ void WsClient::scheduleReconnect(bool from_error)
         std::chrono::duration<double>(reconnect_interval_sec_)));
 
     // Tentukan target berikutnya:
-    // - Kalau sekarang pakai primary & ada backup → pindah ke backup (FALLBACK)
-    // - Kalau sekarang pakai backup → balik ke primary
+    // - Kalau sekarang pakai primary & ada backup -> pindah ke backup (FALLBACK)
+    // - Kalau sekarang pakai backup -> balik ke primary
     bool next_use_backup = use_backup_.load();
 
     if (!next_use_backup && !backup_uri_.empty()) {
