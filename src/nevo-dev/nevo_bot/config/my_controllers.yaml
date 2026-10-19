@@ -17,13 +17,22 @@ diff_cont:
     left_wheel_names: ["left_wheel_joint"]
     right_wheel_names: ["right_wheel_joint"]
 
-    wheel_separation: 0.425
-    wheel_radius: 0.0635
+    # 0.425 (tape) -> 0.386: odom under-reported rotation by 9.1% against lidar ICP
+    # (bag odom_A_lag, 6 turns, ratio 0.909 +- 0.001). Both rescaled below.
+    # 2026-10-19 straight test (4 legs, tape + lidar ICP agree +-1.5 cm): wheel odom 3.9 % short
+    # in both directions -> radius and separation both x1.0389 (keeps the spin-calibrated
+    # radius/separation ratio). Was radius 0.0635, separation 0.386.
+    wheel_separation: 0.401
+    wheel_radius: 0.0660
 
     enable_odom_tf: false
+
+    # Default 10 = 0.5 s rolling mean on the published twist -> ~225 ms lag, and the EKF
+    # fuses only twist. 2 = 0.1 s window: ~25 ms lag, still smooths encoder quantization.
+    velocity_rolling_window_size: 2
     odom_frame_id: odom
 
-    twist_covariance_diagonal: [0.001, 0.001, 1e6, 1e6, 1e6, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 1e6, 1e6, 1e6, 0.001]  # yaw 0.01 -> 0.001: EKF trusts wheel yaw rate (no other yaw source)
     pose_covariance_diagonal: [0.001, 0.001, 1e6, 1e6, 1e6, 0.01]
 
 # # --- Limits (Jazzy: has_*_limits params removed; use NaN to disable) ---

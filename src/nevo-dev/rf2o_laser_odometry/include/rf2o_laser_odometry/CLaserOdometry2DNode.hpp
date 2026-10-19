@@ -24,6 +24,7 @@ public:
   CLaserOdometry2D    rf2o_ref;
   bool                publish_tf, new_scan_available;
   double              freq;
+  double              twist_cov_vx, twist_cov_vyaw;  // published twist covariance (EKF weight)
   std::string         laser_scan_topic;
   std::string         odom_topic;
   std::string         base_frame_id;

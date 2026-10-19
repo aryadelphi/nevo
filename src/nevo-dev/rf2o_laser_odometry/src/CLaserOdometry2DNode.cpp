@@ -39,6 +39,12 @@ CLaserOdometry2DNode::CLaserOdometry2DNode(): Node("CLaserOdometry2DNode")
   this->get_parameter("init_pose_from_topic", init_pose_from_topic);
   this->declare_parameter<double>("freq", 10.0);
   this->get_parameter("freq", freq);
+  // Stock rf2o publishes all-zero covariance, which robot_localization treats as
+  // near-perfect and lets it override every other source. Make the weight explicit.
+  this->declare_parameter<double>("twist_cov_vx", 0.001);
+  this->get_parameter("twist_cov_vx", twist_cov_vx);
+  this->declare_parameter<double>("twist_cov_vyaw", 0.0005);
+  this->get_parameter("twist_cov_vyaw", twist_cov_vyaw);
 
   // Init Publishers and Subscribers
   //---------------------------------
@@ -176,7 +182,7 @@ void CLaserOdometry2DNode::process()
   else
   {
     // This is a warning. We depend on laser scans, so no meaning running faster than scan freq.
-    RCLCPP_WARN(get_logger(), "Waiting for laser_scans....");
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000, "Waiting for laser_scans....");
   }
 }
 
@@ -223,6 +229,13 @@ void CLaserOdometry2DNode::publish()
   odom.twist.twist.linear.x = rf2o_ref.lin_speed;    //linear speed
   odom.twist.twist.linear.y = 0.0;
   odom.twist.twist.angular.z = rf2o_ref.ang_speed;   //angular speed
+  // pose is never fused (unbounded drift); vy/vz/roll/pitch rates are not estimated
+  for (int i = 0; i < 6; ++i) {
+    odom.pose.covariance[i * 7] = 1e6;
+    odom.twist.covariance[i * 7] = 1e6;
+  }
+  odom.twist.covariance[0] = twist_cov_vx;
+  odom.twist.covariance[35] = twist_cov_vyaw;
   //publish the message
   odom_pub->publish(odom);
 

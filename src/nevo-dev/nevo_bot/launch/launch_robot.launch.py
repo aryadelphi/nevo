@@ -43,6 +43,10 @@ def generate_launch_description():
     declare_robot_id = DeclareLaunchArgument('robot_id', default_value='TFRB2')
     declare_ui_id    = DeclareLaunchArgument('ui_id',    default_value='TFUI2')
     declare_ws_uri   = DeclareLaunchArgument('ws_uri_primary', default_value='wss://tifa-ws.forgixrobotic.com')
+    # cloud:=false skips ws_bridge + robot_api (dashboard link, goals, map selection) for
+    # manual runs, e.g. testing another map while nevo.service is stopped
+    declare_cloud    = DeclareLaunchArgument('cloud', default_value='true')
+    cloud_enabled    = IfCondition(LaunchConfiguration('cloud'))
     declare_mode_arg = DeclareLaunchArgument(
         name='stack_mode',
         default_value='nav',
@@ -98,7 +102,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('nevo_ws_bridge'), 'launch', 'ws_bridge.launch.py')
         ),
-        launch_arguments={'ws_uri_primary': ws_uri_primary, 'robot_id': robot_id, 'network_mode': 'auto'}.items()
+        launch_arguments={'ws_uri_primary': ws_uri_primary, 'robot_id': robot_id, 'network_mode': 'auto'}.items(),
+        condition=cloud_enabled,
     )
     diag_mode = IfElseSubstitution(is_mapping, 'mapping', 'navigation')
     diagnostic_node = IncludeLaunchDescription(
@@ -122,22 +127,31 @@ def generate_launch_description():
         executable='imu_publisher.py',
         name='imu_publisher',
         output='screen',
-        condition=IfCondition('false')  # DISABLED — hardware issue, wheel-only mode
+        # Arduino Nano + MPU6050 (2026-10-18). by-id path until the ttyIMU udev rule is updated.
+        # gyro_cov z 1e-5: validated 2026-10-18 (3+3 turns at 0.35 rad/s, IMU within 0.3 deg
+        # of lidar ICP vs wheels 3.5 deg), so the EKF takes yaw rate from the IMU, not the wheels
+        parameters=[{'serial_port': '/dev/serial/by-id/usb-1a86_USB2.0-Ser_-if00-port0',
+                     'tilt_correction': 'fixed',
+                     'gyro_cov': [1e-4, 1e-4, 1e-5]}],
     )
-    # RF2O disabled for now — will use wheel odom + IMU in the future
-    # Uncomment when IMU sensor is integrated
-    # rf2o_node = Node(
-    #     package='rf2o_laser_odometry',
-    #     executable='rf2o_laser_odometry_node',
-    #     name='rf2o_laser_odometry',
-    #     output='log',
-    #     arguments=['--ros-args', '--log-level', 'warn'],
-    #     parameters=[{
-    #         'laser_scan_topic': '/scan_filtered', 'odom_topic': '/odom_rf2o',
-    #         'publish_tf': False, 'base_frame_id': 'base_link',
-    #         'odom_frame_id': 'odom', 'init_pose_from_topic': '', 'freq': 10.0
-    #     }],
-    # )
+    # rf2o: lidar odometry (twist only, no TF) fused by the EKF next to the wheels.
+    # Wheels slip (esp. reversing); lidar does not. Needs the patched rf2o that
+    # publishes twist_cov_* (stock rf2o publishes zero covariance).
+    rf2o_node = Node(
+        package='rf2o_laser_odometry',
+        executable='rf2o_laser_odometry_node',
+        name='rf2o_laser_odometry',
+        output='log',
+        ros_arguments=['--log-level', 'rf2o_laser_odometry:=warn'],
+        parameters=[{
+            'laser_scan_topic': '/scan_filtered', 'odom_topic': '/odom_rf2o',
+            'publish_tf': False, 'base_frame_id': 'base_link',
+            'odom_frame_id': 'odom', 'init_pose_from_topic': '', 'freq': 10.0,
+            # lower = more weight in the EKF. vyaw below the wheel 0.001 so lidar
+            # wins on rotation; vx equal to the wheels (rf2o vx is weaker in long corridors).
+            'twist_cov_vx': 0.001, 'twist_cov_vyaw': 0.0005,
+        }],
+    )
 
     delayed_controller_manager = TimerAction(period=5.0, actions=[controller_manager])
 
@@ -216,7 +230,8 @@ def generate_launch_description():
             os.path.join(get_package_share_directory('nevo_robot_api'), 'launch', 'robot_api.launch.py')
         ),
         launch_arguments={'robot_id': robot_id, 'ui_id': ui_id, 'mode': stack_mode,
-                          'enforce_map_id': LaunchConfiguration('enforce_map_id')}.items()
+                          'enforce_map_id': LaunchConfiguration('enforce_map_id')}.items(),
+        condition=cloud_enabled,
     )
     sensor_manager = Node(
         package='nevo_robot_api', executable='sensor_manager_node', name='sensor_manager_node'
@@ -360,14 +375,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         fix_rmw_env, fix_fastdds_env,
-        declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_mode_arg,
+        declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_cloud, declare_mode_arg,
         declare_docking_arg, declare_nav_params_arg, declare_enforce_map_id_arg,
 
         # Layer 0
         rsp, rplidar_activate, ws_bridge, diagnostic_node,
 
         # Layer 1
-        laser_filter_node, #imu_node,
+        laser_filter_node, rf2o_node, imu_node,
         delayed_controller_manager,
 
         # Layer 2

@@ -20,19 +20,29 @@ ekf_filter_node:
                    false, false, true,
                    false, false, false]
     odom0_queue_size: 5
+    # rf2o lidar odometry: vx + vyaw. Its stamps are scan times (~0.1-0.2 s old
+    # on arrival), hence smooth_lagged_data below.
+    odom1: /odom_rf2o
+    odom1_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    odom1_queue_size: 5
+    smooth_lagged_data: true
+    history_length: 1.0
 
-    # MPU6050 IMU — angular velocity only (gyro Z for yaw correction)
-    # Linear acceleration NOT fused — gravity removal unreliable on tilted IMU,
-    # and wheel odom already provides better velocity estimates.
-    # imu0: /imu/data_raw
-    # imu0_config: [false, false, false,
-    #               false, false, false,
-    #               false, false, false,
-    #               true,  true,  true,
-    #               false, false, false]
-    # imu0_differential: false
-    # imu0_relative: false
-    # imu0_queue_size: 5
+    # MPU6050 IMU (Nano, 100 Hz, 2026-10-18) — vyaw only. imu_publisher rotates out
+    # the 4.5 deg mount tilt (gyro-axis measured). Linear acceleration NOT fused (accel reads 1.12 g, uncalibrated).
+    imu0: /imu/data_raw
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 10
 
     # RF2O laser odometry — DISABLED for now
     # TODO: Will be replaced by wheel odom + IMU fusion in the future
@@ -49,18 +59,21 @@ ekf_filter_node:
 
 
     # Process noise covariance (Q matrix)
+    # vx (row 7) 0.025 -> 0.1 and vyaw (row 12) 0.02 -> 0.1 (2026-10-14): with the old
+    # values the filter smoothed wheel velocity with ~145 ms lag (bag odom_A_lag), which
+    # twisted scans mid-turn. Higher process noise lets vx/vyaw follow the wheels.
     process_noise_covariance: [0.05,   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.05,   0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.06,   0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.03,   0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.03,   0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.06,   0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
-                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.025,   0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.1  ,   0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.025,   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.04,   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.01,   0.0,    0.0,    0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.01,   0.0,    0.0,    0.0,    0.0,
-                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.02,   0.0,    0.0,    0.0,
+                               0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.1 ,   0.0,    0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.01,   0.0,    0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.01,   0.0,
                                0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.025]
