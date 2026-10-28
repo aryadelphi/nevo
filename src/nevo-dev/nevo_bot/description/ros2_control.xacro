@@ -11,6 +11,10 @@
           <param name="baud_rate">57600</param>
           <param name="timeout">30</param>
           <param name="enc_counts_per_rev">2000</param>
+          <!-- Motor deadband compensation (deadband_test.py, 2026-10-27): wheels do not turn below
+               ~3.5-4 counts/frame, so non-zero targets below 4 are raised to 4 (0 = off). -->
+          <param name="min_counts_per_frame">4.0</param>
+          <param name="zero_counts_per_frame">0.5</param>
       </hardware>
 
       <joint name="left_wheel_joint">

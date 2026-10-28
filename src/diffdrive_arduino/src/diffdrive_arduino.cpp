@@ -29,6 +29,12 @@ hardware_interface::CallbackReturn DiffDriveArduino::on_init(const hardware_inte
   cfg_.baud_rate = std::stoi(info_.hardware_parameters["baud_rate"]);
   cfg_.timeout = std::stoi(info_.hardware_parameters["timeout"]);
   cfg_.enc_counts_per_rev = std::stoi(info_.hardware_parameters["enc_counts_per_rev"]);
+  if (info_.hardware_parameters.count("min_counts_per_frame"))
+    cfg_.min_counts_per_frame = std::stof(info_.hardware_parameters["min_counts_per_frame"]);
+  if (info_.hardware_parameters.count("zero_counts_per_frame"))
+    cfg_.zero_counts_per_frame = std::stof(info_.hardware_parameters["zero_counts_per_frame"]);
+  RCLCPP_INFO(logger_, "Deadband compensation: min %.2f counts/frame (0 = off), zero below %.2f",
+    cfg_.min_counts_per_frame, cfg_.zero_counts_per_frame);
 
   // Set up the wheels
   l_wheel_.setup(cfg_.left_wheel_name, cfg_.enc_counts_per_rev);
@@ -147,10 +153,22 @@ hardware_interface::return_type DiffDriveArduino::write(
   }
 
   // Counts per firmware PID frame (cfg_.loop_rate must match the firmware PID_RATE).
-  // Round instead of truncating toward zero.
-  arduino_.setMotorValues(
-    static_cast<int>(std::lround(l_wheel_.cmd / l_wheel_.rads_per_count / cfg_.loop_rate)),
-    static_cast<int>(std::lround(r_wheel_.cmd / r_wheel_.rads_per_count / cfg_.loop_rate)));
+  // Round instead of truncating toward zero. Deadband compensation (2026-10-27, deadband_test.py):
+  // the firmware PID does not turn a wheel below ~3.5-4 counts/frame (0.02 m/s / 0.10 rad/s
+  // robot commands did nothing, 0.03 / 0.12 moved), so small non-zero targets are raised to
+  // the minimum that moves. Odometry still comes from the encoders, so the loop stays closed.
+  const auto counts = [this](double cmd_rad_s, double rads_per_count) {
+    double c = cmd_rad_s / rads_per_count / cfg_.loop_rate;
+    if (cfg_.min_counts_per_frame > 0.0f) {
+      if (std::abs(c) < cfg_.zero_counts_per_frame) {
+        c = 0.0;
+      } else if (std::abs(c) < cfg_.min_counts_per_frame) {
+        c = std::copysign(static_cast<double>(cfg_.min_counts_per_frame), c);
+      }
+    }
+    return static_cast<int>(std::lround(c));
+  };
+  arduino_.setMotorValues(counts(l_wheel_.cmd, l_wheel_.rads_per_count), counts(r_wheel_.cmd, r_wheel_.rads_per_count));
 
 
 
