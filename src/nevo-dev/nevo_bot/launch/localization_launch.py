@@ -120,13 +120,14 @@ def generate_launch_description():
         cmd=['bash', '-c', '''
             source /opt/ros/jazzy/setup.bash
             source /home/nevo/nevo_ws/install/setup.bash 2>/dev/null || true
-            export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-            export FASTRTPS_DEFAULT_PROFILES_FILE="file:///home/nevo/fastdds.xml"
+            # RMW_IMPLEMENTATION / ROS_DOMAIN_ID are inherited from the launch env.
+            # --no-daemon everywhere: a ros2 daemon left over from another RMW (or an
+            # rmw_zenoh daemon) answers with an empty graph -> "Node not found".
 
             # Wait for nodes to appear on the ROS graph
             echo "=== lifecycle_activator: waiting for map_server node ==="
             for i in $(seq 1 30); do
-                if ros2 node list 2>/dev/null | grep -q "/map_server"; then
+                if ros2 node list --no-daemon 2>/dev/null | grep -q "/map_server"; then
                     echo "=== lifecycle_activator: map_server found after ${i}s ==="
                     break
                 fi
@@ -139,10 +140,18 @@ def generate_launch_description():
                 local node="$1" transition="$2" label="$3"
                 for attempt in 1 2 3 4 5 6 7 8; do
                     echo "=== lifecycle_activator: $label (attempt $attempt) ==="
-                    OUTPUT=$(ros2 lifecycle set "$node" "$transition" 2>&1)
+                    OUTPUT=$(ros2 lifecycle set --no-daemon "$node" "$transition" 2>&1)
                     echo "$OUTPUT"
                     if echo "$OUTPUT" | grep -q "Transitioning successful"; then
                         echo "=== lifecycle_activator: $label OK ==="
+                        return 0
+                    fi
+                    # The reply can be lost or report failure although the node did
+                    # transition (seen with rmw_zenoh under load): trust the node state.
+                    STATE=$(ros2 lifecycle get --no-daemon "$node" 2>/dev/null)
+                    if { [ "$transition" = configure ] && echo "$STATE" | grep -q "^inactive"; } ||
+                       { [ "$transition" = activate ] && echo "$STATE" | grep -q "^active"; }; then
+                        echo "=== lifecycle_activator: $label OK (state: $STATE) ==="
                         return 0
                     fi
                     echo "=== lifecycle_activator: $label failed, retrying in 5s ==="

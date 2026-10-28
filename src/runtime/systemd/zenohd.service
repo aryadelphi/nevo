@@ -1,0 +1,22 @@
+[Unit]
+Description=Zenoh router for the NEVO ROS 2 stack (rmw_zenoh)
+# rmw_zenoh nodes only discover each other through a router; nevo.service and
+# nevo-mapping.service require this unit. Listens on tcp/[::]:7447 (default
+# router config, multicast scouting off): the laptop router connects to it.
+After=network.target
+
+[Service]
+Type=simple
+User=nevo
+Group=nevo
+WorkingDirectory=/home/nevo
+EnvironmentFile=/home/nevo/nevo_ros.env
+ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && exec ros2 run rmw_zenoh_cpp rmw_zenohd'
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zenohd
+
+[Install]
+WantedBy=multi-user.target

@@ -1,15 +1,14 @@
 [Unit]
 Description=NEVO Navigation Stack
-After=network.target
+Requires=zenohd.service
+After=network.target zenohd.service
 
 [Service]
 Type=simple
 User=nevo
 Group=nevo
 WorkingDirectory=/home/nevo
-Environment=RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-Environment=FASTRTPS_DEFAULT_PROFILES_FILE=file:///home/nevo/fastdds.xml
-Environment=ROS_DOMAIN_ID=7
+EnvironmentFile=/home/nevo/nevo_ros.env
 Environment=ROS_LOCALHOST_ONLY=0
 ExecStart=/bin/bash /home/nevo/nevo_launch_robot.sh nav
 Restart=on-failure

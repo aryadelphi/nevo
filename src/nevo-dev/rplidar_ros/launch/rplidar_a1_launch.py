@@ -20,9 +20,8 @@ def generate_launch_description():
     scan_mode = LaunchConfiguration('scan_mode', default='Sensitivity')
     
     return LaunchDescription([
-        SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'),
-        SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', 'file:///home/nevo/fastdds.xml'),
-        SetEnvironmentVariable('ROS_DOMAIN_ID', '7'),
+        # RMW_IMPLEMENTATION / ROS_DOMAIN_ID come from the parent launch or the
+        # shell (~/nevo_ros.env); forcing them here split the graph on a mismatch.
 
         DeclareLaunchArgument(
             'channel_type',

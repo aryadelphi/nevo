@@ -13,9 +13,7 @@ fi
 
 source /opt/ros/jazzy/setup.bash
 source "$HOME/nevo_ws/install/setup.bash"
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-export FASTRTPS_DEFAULT_PROFILES_FILE="file://$HOME/fastdds.xml"
-export ROS_DOMAIN_ID=7
+set -a; source "$HOME/nevo_ros.env"; set +a  # RMW_IMPLEMENTATION + ROS_DOMAIN_ID
 
 # Use an rclpy client: `ros2 service call` prints a truncated repr of the
 # response (huge OccupancyGrid), so its success field can't be parsed reliably.

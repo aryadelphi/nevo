@@ -1,15 +1,14 @@
 [Unit]
 Description=NEVO Mapping Stack
-After=network.target
+Requires=zenohd.service
+After=network.target zenohd.service
 
 [Service]
 Type=simple
 User=nevo
 Group=nevo
 WorkingDirectory=/home/nevo
-Environment=RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-Environment=FASTRTPS_DEFAULT_PROFILES_FILE=file:///home/nevo/fastdds.xml
-Environment=ROS_DOMAIN_ID=0
+EnvironmentFile=/home/nevo/nevo_ros.env
 Environment=ROS_LOCALHOST_ONLY=0
 ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source /home/nevo/nevo_ws/install/setup.bash && exec ros2 launch nevo_bot hw_mapping.launch.py robot_id:=TFRB2 ui_id:=TFUI2'
 Restart=on-failure
