@@ -41,6 +41,11 @@ KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
 
   enable_rgb_ = declare_parameter<bool>("enable_rgb", false);
   downscale_ = std::max(1, static_cast<int>(declare_parameter<int>("depth_downscale", 8)));
+  // Thins only the full-res stream (recording / survey); the decimated /points
+  // stream for STVL keeps the full rate. Compression (image_transport) runs per
+  // published frame, so this is where the CPU is saved.
+  full_depth_every_n_ = std::max(1, static_cast<int>(
+    declare_parameter<int>("full_depth_every_n", 1)));
   const double DOWNSCALE = downscale_;
   depth_small_info_ = depth_info_;
   depth_small_info_.width = static_cast<uint32_t>(depth_info_.width / DOWNSCALE);
@@ -193,8 +198,11 @@ void KinectRosComponent::publish_callback()
     header.frame_id = "kinect_depth";
     header.stamp = stamp;
 
-    // Full-resolution depth only when someone listens (e.g. rviz).
-    if (depth_pub_.getNumSubscribers() > 0) {
+    // Full-resolution depth only when someone listens (e.g. rviz, the survey
+    // recorder), and only every full_depth_every_n-th frame.
+    if (depth_pub_.getNumSubscribers() > 0 &&
+      full_depth_count_++ % static_cast<unsigned int>(full_depth_every_n_) == 0)
+    {
       depth_info_.header.stamp = stamp;
       auto msg = cv_bridge::CvImage(header, "16UC1", depth).toImageMsg();
       depth_pub_.publish(*msg, depth_info_);

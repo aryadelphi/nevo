@@ -9,7 +9,8 @@ from launch.actions import (
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.substitutions import Command, LaunchConfiguration, EqualsSubstitution, IfElseSubstitution
+from launch.substitutions import (Command, LaunchConfiguration, EqualsSubstitution, IfElseSubstitution,
+                                  AndSubstitution, OrSubstitution)
 from launch.event_handlers import OnProcessStart
 from launch_ros.actions import Node
 
@@ -46,6 +47,9 @@ def generate_launch_description():
     # cloud:=false skips ws_bridge + robot_api (dashboard link, goals, map selection) for
     # manual runs, e.g. testing another map while nevo.service is stopped
     declare_cloud    = DeclareLaunchArgument('cloud', default_value='true')
+    # nav:=true in stack_mode:=mapping also starts Nav2 (no AMCL / map_server):
+    # slam_toolbox provides /map and map->odom, so "Nav2 Goal" works while mapping
+    declare_nav      = DeclareLaunchArgument('nav', default_value='false')
     cloud_enabled    = IfCondition(LaunchConfiguration('cloud'))
     declare_mode_arg = DeclareLaunchArgument(
         name='stack_mode',
@@ -130,8 +134,14 @@ def generate_launch_description():
         # Arduino Nano + MPU6050 (2026-10-18). by-id path until the ttyIMU udev rule is updated.
         # gyro_cov z 1e-5: validated 2026-10-18 (3+3 turns at 0.35 rad/s, IMU within 0.3 deg
         # of lidar ICP vs wheels 3.5 deg), so the EKF takes yaw rate from the IMU, not the wheels
+        # mount_up / gyro_scale_z: calibrated 2026-10-27 for the re-soldered Nano + new GY-521
+        # mount (bag imu_cal_1027, 3+3 turns vs lidar ICP; src/scripts/imu_cal/). Spin axis is
+        # 6.1 deg from sensor z; the old values (node defaults 0.0784/0.0014/0.9969, 1.0131)
+        # belonged to the previous chip and made the yaw ~1 % too large.
         parameters=[{'serial_port': '/dev/serial/by-id/usb-1a86_USB2.0-Ser_-if00-port0',
                      'tilt_correction': 'fixed',
+                     'mount_up': [0.0962, -0.0458, 0.9943],
+                     'gyro_scale_z': 1.0023,
                      'gyro_cov': [1e-4, 1e-4, 1e-5]}],
     )
     # rf2o: lidar odometry (twist only, no TF) fused by the EKF next to the wheels.
@@ -196,8 +206,16 @@ def generate_launch_description():
     navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(pkg_share, 'launch', 'navigation_launch.py')),
         launch_arguments={'use_sim_time': 'false', 'map_subscribe_transient_local': 'true',
-                          'params_file': nav_params}.items(),
-        condition=IfCondition(is_nav)
+                          'params_file': nav_params,
+                          'nav_to_pose_bt': IfElseSubstitution(
+                              is_mapping,
+                              os.path.join(get_package_share_directory('nav2_bt_navigator'),
+                                           'behavior_trees',
+                                           'navigate_to_pose_w_replanning_and_recovery.xml'),
+                              os.path.join(pkg_share, 'config',
+                                           'navigate_to_pose_w_relocalization.xml'))}.items(),
+        condition=IfCondition(OrSubstitution(
+            is_nav, AndSubstitution(is_mapping, LaunchConfiguration('nav'))))
     )
     safety_fail_node = Node(
         package='nevo_bot', executable='safety_fail_node', name='safety_fail_node', output='log'
@@ -210,6 +228,12 @@ def generate_launch_description():
         launch_arguments={'slam_params_file': slam_params_file, 'use_sim_time': 'false'}.items(),
         condition=IfCondition(is_mapping)
     )
+    # RViz "2D Pose Estimate" re-anchors slam_toolbox while mapping (it ignores
+    # /initialpose itself). Mapping mode only: in nav mode /initialpose is AMCL's.
+    slam_pose_correction = Node(
+        package='nevo_bot', executable='slam_pose_correction.py', name='slam_pose_correction',
+        output='screen', condition=IfCondition(is_mapping)
+    )
     layer3_timed = RegisterEventHandler(
         event_handler=OnProcessStart(
             target_action=controller_manager,
@@ -218,6 +242,7 @@ def generate_launch_description():
                 TimerAction(period=25.0, actions=[navigation_launch]),
                 TimerAction(period=22.0, actions=[safety_fail_node]),
                 TimerAction(period=8.0, actions=[mapping_slam]),
+                TimerAction(period=12.0, actions=[slam_pose_correction]),
             ]
         )
     )
@@ -332,7 +357,9 @@ def generate_launch_description():
     kinect_activate = Node(
         package='kinect_ros2',
         executable='kinect_ros2_node',
-        output='screen'
+        output='screen',
+        # full-res depth at 10 of 30 Hz (survey recording); /points for STVL stays at 30
+        parameters=[{'full_depth_every_n': 3}]
     )
     kinect_tf = Node(
         package='tf2_ros',
@@ -364,18 +391,17 @@ def generate_launch_description():
     # =========================================================================
     # RETURN
     # =========================================================================
+    # Middleware for every node of the stack (includes and ExecuteProcess children
+    # inherit it). Zenoh needs the router (zenohd.service) running on this host.
+    # ~/nevo_ros.env holds the same value for systemd and the shells.
     fix_rmw_env = SetEnvironmentVariable(
         'RMW_IMPLEMENTATION',
-        'rmw_fastrtps_cpp'
-    )
-    fix_fastdds_env = SetEnvironmentVariable(
-        'FASTRTPS_DEFAULT_PROFILES_FILE',
-        'file:///home/nevo/fastdds.xml'
+        'rmw_zenoh_cpp'
     )
 
     return LaunchDescription([
-        fix_rmw_env, fix_fastdds_env,
-        declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_cloud, declare_mode_arg,
+        fix_rmw_env,
+        declare_map_arg, declare_robot_id, declare_ui_id, declare_ws_uri, declare_cloud, declare_nav, declare_mode_arg,
         declare_docking_arg, declare_nav_params_arg, declare_enforce_map_id_arg,
 
         # Layer 0

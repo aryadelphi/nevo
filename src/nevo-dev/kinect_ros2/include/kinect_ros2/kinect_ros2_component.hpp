@@ -42,6 +42,8 @@ private:
   void publish_callback();
   bool enable_rgb_ = false;   // RGB stream is not used by the nav stack
   int downscale_ = 8;         // depth decimation for the point cloud (8 -> 80x60)
+  int full_depth_every_n_ = 1;  // full-res depth/image_raw: publish every Nth frame
+  unsigned int full_depth_count_ = 0;
 };
 
 }

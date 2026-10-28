@@ -4,7 +4,14 @@
     <joint name="camera_joint" type="fixed">
         <parent link="chassis"/>
         <child link="camera_link"/>
-        <origin xyz="0.46 0 1.0" rpy="0 0 0"/>
+        <!-- Calibrated 2026-10-25 (lab + wall bags, see src/scripts/cafe_survey):
+             x 0.495: lidar centre -> Kinect face measured ~19.5 cm (was 0.46).
+             pitch 0.0428 rad = 2.45 deg down: mostly the whole body leaning on the
+               lower front caster, so it varies 1-3 deg with how the robot settles.
+             yaw 0.035 rad = 2.0 deg left of the lidar (wall seen by both sensors).
+             Height 0.99 m and roll -0.27 deg measured, left as is.
+             The Kinect has a tilt motor: re-check after it has been moved. -->
+        <origin xyz="0.495 0 1.0" rpy="0 0.0428 0.035"/>
     </joint>
 
     <link name="camera_link">

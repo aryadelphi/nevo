@@ -60,7 +60,10 @@ def generate_launch_description():
     # Create our own temporary YAML files that include substitutions
     param_substitutions = {
         'use_sim_time': use_sim_time,
-        'autostart': autostart}
+        'autostart': autostart,
+        # NEVO's BT ends with AMCL's ReinitializeGlobalLocalization; mapping mode
+        # (no AMCL) passes Nav2's stock tree instead
+        'default_nav_to_pose_bt_xml': LaunchConfiguration('nav_to_pose_bt')}
 
     configured_params = ParameterFile(
         RewrittenYaml(
@@ -82,6 +85,11 @@ def generate_launch_description():
         'use_sim_time',
         default_value='false',
         description='Use simulation (Gazebo) clock if true')
+
+    declare_nav_to_pose_bt_cmd = DeclareLaunchArgument(
+        'nav_to_pose_bt',
+        default_value=os.path.join(bringup_dir, 'config', 'navigate_to_pose_w_relocalization.xml'),
+        description='Behavior tree XML for NavigateToPose')
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
@@ -262,6 +270,7 @@ def generate_launch_description():
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_params_file_cmd)
+    ld.add_action(declare_nav_to_pose_bt_cmd)
     ld.add_action(declare_autostart_cmd)
     ld.add_action(declare_use_composition_cmd)
     ld.add_action(declare_container_name_cmd)

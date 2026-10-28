@@ -8,7 +8,7 @@
 # controller_server FollowPath block, so any difference in the results comes
 # from the local planner. Shared values (Bab 4 "Parameter Tetap"):
 #   v_max 0.4 m/s, w_max 0.8 rad/s, a_max 0.5 m/s^2, alpha_max 1.0 rad/s^2,
-#   no reverse in the planner, controller 10 Hz, goal 0.20 m / 0.26 rad (15 deg),
+#   no reverse in the planner, controller 10 Hz, goal 0.15 m / 0.26 rad (15 deg) (pass: 0.20 m / 15 deg),
 #   footprint 0.70 x 0.60 m, STVL on in both costmaps (voxel 0.05 m, decay 2.0 s).
 # Check:  diff config/hw_nav_dwb.yaml config/hw_nav_mppi.yaml
 
@@ -100,7 +100,9 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.20
+      # 0.15: pass criterion (Tujuan 4) stays +-0.20 m. 0.20 let the robot stop at the edge (AMCL error
+      # pushed it out); 0.10 made MPPI park 12-17 cm out on the real robot (motor deadband, 2026-10-27).
+      xy_goal_tolerance: 0.15
       yaw_goal_tolerance: 0.26
 
     # ---- planner under test (the only block that differs from hw_nav_dwb.yaml) ----
